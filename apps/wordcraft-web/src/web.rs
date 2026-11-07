@@ -259,6 +259,10 @@ fn services(inbox: Inbox, ctx: egui::Context, dirty: Rc<Cell<bool>>, saves: Asyn
     let font_messages = messages.clone();
     Services {
         open_async: Some(Box::new(move |purpose: &str| {
+            // Clawku: opening a document goes through the host page's storage browser
+            if purpose == "document" && crate::clawku_pick::host_pick("wordcraft", "document") {
+                return;
+            }
             let inbox = open_inbox.clone();
             let ctx = ctx.clone();
             let dialog = if purpose == "picture" {
