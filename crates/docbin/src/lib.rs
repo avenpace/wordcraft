@@ -132,7 +132,7 @@ impl Work {
     fn log(&self) {
         let dropped = self.dropped();
         for c in &dropped {
-            log::warn!(".doc: the document repeats more than WordCraft copies ({MAX_WORK} bytes): {}", c.left_out());
+            log::warn!(".doc: the document repeats more than ClaWord copies ({MAX_WORK} bytes): {}", c.left_out());
         }
         #[cfg(test)]
         LAST_DROPPED.with(|d| *d.borrow_mut() = dropped);

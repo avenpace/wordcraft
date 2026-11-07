@@ -701,7 +701,7 @@ pub(crate) fn your_languages_section(app: &mut WordApp, ui: &mut Ui) {
     if backend.as_ref().is_some_and(|b| !b.network_on()) {
         ui.label(
             RichText::new(tl!(
-                "Downloading is off. Clicking Add a language… or Install turns it on: WordCraft then downloads language packs and fonts from GitHub."
+                "Downloading is off. Clicking Add a language… or Install turns it on: ClaWord then downloads language packs and fonts from GitHub."
             ))
             .small()
             .weak(),
@@ -864,7 +864,7 @@ fn licence_texts() -> Arc<Vec<(String, String)>> {
 /// About › Language data: the full licence text of the embedded English data and of each
 /// installed pack.
 pub(crate) fn about_tab(ui: &mut Ui) {
-    ui.label(RichText::new(tl!("The spelling and hyphenation data WordCraft uses, and their licences.")).small().weak());
+    ui.label(RichText::new(tl!("The spelling and hyphenation data ClaWord uses, and their licences.")).small().weak());
     ui.add_space(4.0);
     let texts = licence_texts();
     // A fixed height: entries open and long texts scroll inside it, and the dialog keeps its size.

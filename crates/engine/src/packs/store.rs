@@ -14,7 +14,7 @@ use super::{Cancel, Pack};
 /// `CRAFT_LANGUAGE_PACK_INDEX` (read by the font store itself) points WordCraft at a local or test
 /// index instead, for trying packs before they are released.
 pub const PACK_INDEX: PackIndexPin = PackIndexPin {
-    url: "https://github.com/storytold/craft-i18n/releases/download/language-packs-2/index.json",
+    url: "https://github.com/avenpace/craft-i18n/releases/download/language-packs-2/index.json",
     sha256: "b35c7aef0591177f18233b551da16035dcd615549ff874e169ffd19f16fea74b",
 };
 

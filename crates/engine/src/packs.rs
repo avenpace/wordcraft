@@ -266,7 +266,7 @@ fn no_store() -> String {
 }
 
 fn network_off() -> String {
-    "downloading is turned off: turn it on in WordCraft (File › Options › Language, or an Install button there)".into()
+    "downloading is turned off: turn it on in ClaWord (File › Options › Language, or an Install button there)".into()
 }
 
 /// The pack for `locale` in the index.
@@ -1040,7 +1040,7 @@ impl FixedBackend {
             locale: locale.into(),
             name: name.into(),
             version: "0000000".into(),
-            url: format!("https://github.com/storytold/craft-i18n/releases/download/language-packs-2/{locale}.tar.zst"),
+            url: format!("https://github.com/avenpace/craft-i18n/releases/download/language-packs-2/{locale}.tar.zst"),
             source: Some("https://github.com/LibreOffice/dictionaries".into()),
             size,
             licence: licence.into(),

@@ -192,10 +192,10 @@ fn parse_standard(info: &[u8]) -> Result<Standard<'_>, DocxError> {
     };
     let flags = u32_at(4)?;
     if flags & F_EXTERNAL != 0 {
-        return Err(bad("this file uses extensible encryption, which WordCraft can't open"));
+        return Err(bad("this file uses extensible encryption, which ClaWord can't open"));
     }
     if flags & STANDARD_FLAGS != STANDARD_FLAGS {
-        return Err(bad("this file's encryption isn't AES, which WordCraft can't open"));
+        return Err(bad("this file's encryption isn't AES, which ClaWord can't open"));
     }
     // EncryptionHeader (§2.3.2): Flags, SizeExtra, AlgID, AlgIDHash, KeySize, ProviderType, two
     // reserved words, then the CSP name, which isn't needed.
@@ -831,7 +831,7 @@ fn parse_info(info: &[u8]) -> Result<Info, DocxError> {
     };
     match (major, minor) {
         (4, 4) => {}
-        (3 | 4, 3) => return Err(bad("this file uses extensible encryption, which WordCraft can't open")),
+        (3 | 4, 3) => return Err(bad("this file uses extensible encryption, which ClaWord can't open")),
         _ => return Err(bad(format!("unknown encryption version {major}.{minor}"))),
     }
     let root = xml::parse(info.get(8..).unwrap_or(&[]))?;

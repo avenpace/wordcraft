@@ -642,7 +642,7 @@ fn with_setting(own: &str, name: &str, on: bool, item: &str) -> Option<String> {
 
 fn meta_xml(m: &Meta, core: &wordcraft_doc::CoreProps, props: &[wordcraft_doc::CustomProp]) -> String {
     let mut s =
-        format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<office:document-meta {NS}><office:meta><meta:generator>WordCraft</meta:generator>");
+        format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<office:document-meta {NS}><office:meta><meta:generator>ClaWord</meta:generator>");
     if !m.title.is_empty() {
         s.push_str(&format!("<dc:title>{}</dc:title>", x(&m.title)));
     }

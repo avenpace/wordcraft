@@ -68,7 +68,7 @@ pub fn tool_definitions() -> Value {
         tool(
             "list_commands",
             "List commands",
-            "Every WordCraft command: id, label, ribbon location, shortcut and params. Filter with `query`.",
+            "Every ClaWord command: id, label, ribbon location, shortcut and params. Filter with `query`.",
             obj(json!({"query": s("Case-insensitive filter on id/label/location")}), &[]),
             true
         ),
@@ -149,8 +149,8 @@ pub fn tool_definitions() -> Value {
             obj(json!({}), &[]),
             true
         ),
-        tool("parity", "Feature parity", "WordCraft's command coverage of the word-processor feature catalog.", obj(json!({}), &[]), true),
-        tool("screenshot", "Screenshot app", "Screenshot of the whole WordCraft window (desktop app only).", obj(json!({}), &[]), true),
+        tool("parity", "Feature parity", "ClaWord's command coverage of the word-processor feature catalog.", obj(json!({}), &[]), true),
+        tool("screenshot", "Screenshot app", "Screenshot of the whole ClaWord window (desktop app only).", obj(json!({}), &[]), true),
         tool(
             "click",
             "Click",

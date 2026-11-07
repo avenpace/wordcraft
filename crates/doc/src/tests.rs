@@ -43,7 +43,7 @@ fn character_counts() {
 fn word_count_counts_each_chinese_and_japanese_character() {
     // #4547: unspaced Chinese counted as one word per run.
     assert_eq!(count_words("我们今天去公园。"), 7);
-    assert_eq!(count_words("WordCraft是一个文字处理器，很好用！"), 1 + 11);
+    assert_eq!(count_words("ClaWord是一个文字处理器，很好用！"), 1 + 11);
     assert_eq!(count_words("ひらがなとカタカナ"), 9);
     assert_eq!(count_words("ｶﾀｶﾅ"), 4);
     assert_eq!(count_words("ｶﾞｷﾞ"), 2, "voiced sound marks belong to their kana");

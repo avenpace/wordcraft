@@ -63,7 +63,7 @@ fn a_tall_ascent_font_list_entry_sits_where_the_others_do() {
 fn background_at_caret_follows_page_colour_highlight_and_dark_mode() {
     use wordcraft_doc::Pos;
     use wordcraft_doc::props::Highlight;
-    let mut d = Document::from_text("Hello WordCraft");
+    let mut d = Document::from_text("Hello ClaWord");
     let mid = |d: &Document, off: usize| {
         let l = layout(d, &mut LayoutCache::new(), &LayoutOptions::default());
         let c = l.caret_on(&Pos::body(0, off), 0).unwrap();
@@ -114,7 +114,7 @@ fn background_follows_a_shapes_outline_not_its_box() {
 
 #[test]
 fn renders_text_dark_pixels() {
-    let d = Document::from_text("Hello WordCraft");
+    let d = Document::from_text("Hello ClaWord");
     let l = layout(&d, &mut LayoutCache::new(), &LayoutOptions::default());
     let img = render_page(&d, &l.pages[0], 1.0, &RenderOptions::default());
     assert_eq!((img.width, img.height), (612, 792));
@@ -330,7 +330,7 @@ fn read_paper_replaces_the_page_background() {
     image::RgbaImage::from_pixel(8, 8, image::Rgba([10, 200, 30, 255]))
         .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
         .unwrap();
-    let mut d = Document::from_text("Hello WordCraft");
+    let mut d = Document::from_text("Hello ClaWord");
     d.media.insert("bg.png".into(), Arc::new(png));
     d.settings.page_color = Some(Rgb(0x10, 0x10, 0x40));
     let l = layout(&d, &mut LayoutCache::new(), &LayoutOptions::default());
@@ -707,7 +707,7 @@ fn dark_page_inverts_lightness() {
     // Pure hues keep their colour; dark blue turns light blue.
     assert_eq!(invert_lightness(Rgb(255, 0, 0)), Rgb(255, 0, 0));
     assert_eq!(invert_lightness(Rgb(0, 0, 0x80)), Rgb(0x7F, 0x7F, 0xFF));
-    let d = Document::from_text("Hello WordCraft");
+    let d = Document::from_text("Hello ClaWord");
     let l = layout(&d, &mut LayoutCache::new(), &LayoutOptions::default());
     let opts = RenderOptions { dark: true, ..Default::default() };
     assert_eq!(opts.ink(Rgb::WHITE), Rgb(DARK_PAPER, DARK_PAPER, DARK_PAPER));

@@ -227,7 +227,7 @@ fn checksum(kind: &str, deflated: &[u8]) -> Result<Vec<u8>, CryptError> {
 fn decrypt_file(data: &[u8], p: &Params, password: &str) -> Result<Vec<u8>, CryptError> {
     if p.algorithm != AES256_CBC {
         let what = if p.algorithm.to_ascii_lowercase().contains("blowfish") { "Blowfish".to_string() } else { format!("{:?}", p.algorithm) };
-        return Err(CryptError::Unsupported(format!("this file is encrypted with {what}, which WordCraft can't open")));
+        return Err(CryptError::Unsupported(format!("this file is encrypted with {what}, which ClaWord can't open")));
     }
     let key = file_key(p, password)?;
     let plain = Zeroizing::new(cbc(&key, &p.iv, data, false)?);

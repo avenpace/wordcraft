@@ -567,7 +567,7 @@ fn reading_layout_reflows_into_viewport_height_pages_without_changing_print_layo
 
 #[test]
 fn hit_and_caret_agree() {
-    let d = Document::from_text("Hello world, this is WordCraft.\nSecond paragraph here.");
+    let d = Document::from_text("Hello world, this is ClaWord.\nSecond paragraph here.");
     let l = lay(&d);
     for off in [0, 5, 12, 31] {
         let pos = Pos::body(0, off);
@@ -2090,7 +2090,7 @@ fn private_use_bullet_no_font_draws_shows_the_levels_default_bullet() {
     for a in &mut Arc::make_mut(&mut d.numbering).abstracts {
         if let Some(l) = a.levels.get_mut(1) {
             l.text = "\u{F081}".into();
-            l.chr.font = Some("WordCraft Missing Font 1683".into());
+            l.chr.font = Some("ClaWord Missing Font 1683".into());
         }
     }
     d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| p.numbering = Some(wordcraft_doc::props::NumRef { num: id, level: 1 })).unwrap();
@@ -10494,7 +10494,7 @@ fn ligatures_follow_w14_ligatures() {
     let letters = text.chars().count();
     let none = Ligatures::from_ooxml("none");
     let standard = Ligatures::from_ooxml("standard");
-    assert!(glyphs(None, None) < letters, "WordCraft's default draws ligatures");
+    assert!(glyphs(None, None) < letters, "ClaWord's default draws ligatures");
     assert_eq!(glyphs(None, none), letters, "none: one glyph per letter");
     assert_eq!(glyphs(none, None), letters, "none from the character style");
     assert!(glyphs(none, standard) < letters, "standard over a style with none draws them again");

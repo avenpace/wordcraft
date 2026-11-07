@@ -267,7 +267,7 @@ fn hand_built_standard(payload: &[u8], password: &str) -> Vec<u8> {
     let key = standard_key(&salt, password, 16);
     let mut hash = sha1::Sha1::digest(verifier).to_vec();
     hash.resize(32, 0); // the hash, zero-padded to two AES blocks
-    let csp: Vec<u8> = "WordCraft test provider".encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect();
+    let csp: Vec<u8> = "ClaWord test provider".encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect();
 
     let mut header = Vec::new();
     header.extend_from_slice(&0x24u32.to_le_bytes()); // Flags: fCryptoAPI | fAES

@@ -90,7 +90,7 @@ pub fn submit() -> Submit {
                 }),
                 grayscale: settings.grayscale,
                 scaling: craft_print::Scaling::ShrinkToFit,
-                title: "WordCraft document".into(),
+                title: "ClaWord document".into(),
                 options,
             };
             #[cfg(not(windows))]

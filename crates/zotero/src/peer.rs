@@ -22,7 +22,7 @@ pub(crate) fn check_addr(addr: &SocketAddr) -> Result<(), ZoteroError> {
     if addr.ip().to_canonical().is_loopback() {
         Ok(())
     } else {
-        Err(ZoteroError::Refused(format!("{addr} is not on this computer; WordCraft only talks to Zotero on 127.0.0.1")))
+        Err(ZoteroError::Refused(format!("{addr} is not on this computer; ClaWord only talks to Zotero on 127.0.0.1")))
     }
 }
 

@@ -16,7 +16,7 @@ pub(crate) fn dictionary_problem(lang: &str, unreadable: &Option<(std::path::Pat
         )),
         (None, Some(name)) => Some(crate::i18n::fmt(
             tl!(
-                "No spelling dictionary for {language} is installed, so it isn't checked. WordCraft looks for the Hunspell dictionary {name} in the WORDCRAFT_DICTIONARIES folder and in the usual system locations."
+                "No spelling dictionary for {language} is installed, so it isn't checked. ClaWord looks for the Hunspell dictionary {name} in the WORDCRAFT_DICTIONARIES folder and in the usual system locations."
             ),
             &[("language", lang), ("name", name)],
         )),
@@ -381,11 +381,11 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                             ui.painter().text(
                                 pos2(crate::rtl::lead_x(rtl, r, 24.0), r.center().y),
                                 crate::rtl::lead_center(rtl),
-                                tl!("Discord"),
+                                tl!("Community"),
                                 medium(11.5),
                                 t.on_accent,
                             );
-                            if resp.on_hover_text(tl!("Join the ArtCraft community on Discord")).clicked() {
+                            if resp.on_hover_text(tl!("Join the Clawku community")).clicked() {
                                 let _ = app.run("ui.discord", json!({}));
                             }
                             ui.add_space(8.0);
@@ -399,7 +399,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
             // Centred title.
             let title = if !app.has_document() {
                 // No document open (#1129): the app's name alone.
-                "WordCraft".to_string()
+                "ClaWord".to_string()
             } else {
                 format!(
                     "{} — {}",

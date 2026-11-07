@@ -114,7 +114,7 @@ pub fn list(doc: &Document) -> Vec<ZField> {
             Ev::Note(id, n) => story_fields(doc, StoryRef::Part(id), n).into_iter().all(|f| take(f, &mut out)),
         };
         if !fits {
-            log::warn!("Zotero: the document has more citation fields than WordCraft hands Zotero; the rest are left out");
+            log::warn!("Zotero: the document has more citation fields than ClaWord hands Zotero; the rest are left out");
             break;
         }
     }

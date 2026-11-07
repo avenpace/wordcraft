@@ -265,7 +265,7 @@ impl<'d> EmbedWriter<'d> {
                 }
                 None => {
                     log::warn!(
-                        "docx: the glossary's part {p} can't be cleaned of personal information; the glossary is written from its entries, without what WordCraft doesn't model"
+                        "docx: the glossary's part {p} can't be cleaned of personal information; the glossary is written from its entries, without what ClaWord doesn't model"
                     );
                     return false;
                 }

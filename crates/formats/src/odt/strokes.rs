@@ -15,7 +15,7 @@ use wordcraft_doc::wordart::GradStop;
 /// line, its tip at the line's end.
 pub(super) const ARROW: &str = "WordCraft_20_Arrow";
 pub(super) const ARROW_DEF: &str =
-    "<draw:marker draw:name=\"WordCraft_20_Arrow\" draw:display-name=\"WordCraft Arrow\" svg:viewBox=\"0 0 20 20\" svg:d=\"M10 0L20 20H0z\"/>";
+    "<draw:marker draw:name=\"WordCraft_20_Arrow\" draw:display-name=\"ClaWord Arrow\" svg:viewBox=\"0 0 20 20\" svg:d=\"M10 0L20 20H0z\"/>";
 
 /// A dash or space length: a fraction of the line width, or an absolute length in points.
 #[derive(Clone, Copy, Debug, PartialEq)]

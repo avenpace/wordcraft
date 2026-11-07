@@ -203,7 +203,7 @@ impl Remote {
     fn exchange(&mut self, id: u64, method: &str, params: &Value) -> Result<Value, String> {
         let unreachable = |addr: &str, e: std::io::Error, connected: bool| {
             let retry = if connected { String::new() } else { "; will retry on each call".to_string() };
-            format!("WordCraft app at {addr} is not reachable: {e}{retry}")
+            format!("ClaWord app at {addr} is not reachable: {e}{retry}")
         };
         let mut first = true;
         let reply = loop {
@@ -254,7 +254,7 @@ impl Backend for Remote {
             Err(self.key_warning().map_or_else(
                 || {
                     format!(
-                        "unauthorized: the WordCraft app at {} refused the control key (from WORDCRAFT_CONTROL_KEY or the app's key file)",
+                        "unauthorized: the ClaWord app at {} refused the control key (from WORDCRAFT_CONTROL_KEY or the app's key file)",
                         self.addr
                     )
                 },
@@ -271,9 +271,9 @@ impl Backend for Remote {
 
     fn describe(&self) -> String {
         if self.connected {
-            format!("connected to the WordCraft app at {}", self.addr)
+            format!("connected to the ClaWord app at {}", self.addr)
         } else {
-            format!("will connect to the WordCraft app at {} when it opens", self.addr)
+            format!("will connect to the ClaWord app at {} when it opens", self.addr)
         }
     }
 }

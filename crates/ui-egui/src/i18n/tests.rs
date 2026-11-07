@@ -730,7 +730,7 @@ fn a_polish_interface_writes_new_documents_in_polish() {
     let ctx = egui::Context::default();
     let frame = |app: &mut crate::WordApp| ctx.run_ui(egui::RawInput::default(), |ui| app.logic(ui.ctx())).drop_without_applying_deltas();
     frame(&mut app);
-    assert_eq!(app.session.editing_lang, None, "English interface: WordCraft's default, US English");
+    assert_eq!(app.session.editing_lang, None, "English interface: ClaWord's default, US English");
     assert_eq!(app.session.doc.styles.default_chr.lang.as_deref(), Some("en-US"));
     app.run("ui.language", serde_json::json!({"value": "pl"})).unwrap();
     frame(&mut app);
@@ -1170,7 +1170,7 @@ fn the_languages_offered_are_the_embedded_ones_of_the_list() {
         return;
     }
     let listed: Vec<&str> = LANGUAGES.iter().map(|l| l.code).collect();
-    assert_eq!(all, listed, "every language WordCraft lists has its catalog in craft-i18n");
+    assert_eq!(all, listed, "every language ClaWord lists has its catalog in craft-i18n");
     assert!(Lang::from_code("pseudo").is_none(), "the pseudo locale is never a setting");
 }
 
@@ -1183,7 +1183,7 @@ fn the_flatpak_manifest_pins_the_craft_i18n_rev() {
     let rev = rev.trim();
     assert!(rev.len() == 40 && rev.bytes().all(|b| b.is_ascii_hexdigit()), "craft-i18n.rev holds one full SHA: {rev:?}");
     let manifest = std::fs::read_to_string(root.join("packaging/linux/flatpak/ai.storyteller.wordcraft.yml")).unwrap();
-    let source = manifest.split("url: https://github.com/storytold/craft-i18n").nth(1).expect("a craft-i18n git source");
+    let source = manifest.split("url: https://github.com/avenpace/craft-i18n").nth(1).expect("a craft-i18n git source");
     let source = source.split("- type:").next().unwrap_or(source);
     let commit = source.lines().find_map(|l| l.trim().strip_prefix("commit:")).expect("the craft-i18n source pins a commit");
     assert_eq!(commit.trim().trim_matches(['\'', '"']), rev);
@@ -1233,7 +1233,7 @@ fn arabic_lookups_keep_typing_order() {
     let ar = arabic_fixture(concat!(
         "\tTable of Contents\tجدول المحتويات\n",
         "\tPaste Special…\tلصق خاص…\n",
-        "\tAbout WordCraft\tحول WordCraft\n",
+        "\tAbout ClaWord\tحول ClaWord\n",
         "\tPassword:\tكلمة المرور:\n",
         "\tTable of\\nContents\tجدول\\nالمحتويات\n",
         "\tPage {page} of {pages}\tالصفحة {page} من {pages}\n",
@@ -1245,7 +1245,7 @@ fn arabic_lookups_keep_typing_order() {
     assert!(ar.rtl());
     assert_eq!(tr(ar, "Table of Contents"), "جدول المحتويات");
     assert_eq!(tr(ar, "Paste Special…"), "لصق خاص…");
-    assert_eq!(tr(ar, "About WordCraft"), "حول WordCraft");
+    assert_eq!(tr(ar, "About ClaWord"), "حول ClaWord");
     assert_eq!(tr(ar, "Password:"), "كلمة المرور:");
     // A two-line ribbon label keeps its two lines.
     assert_eq!(tr(ar, "Table of\nContents"), "جدول\nالمحتويات");

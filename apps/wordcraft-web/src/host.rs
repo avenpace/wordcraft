@@ -115,7 +115,7 @@ impl Bridge {
 fn deliver_open(inbox: &Inbox, ctx: &egui::Context, name: &str, data: &FileData) {
     let name = if name == "document" { DEFAULT_NAME } else { name }.to_string();
     let FileData::Bytes(array) = data else {
-        log::warn!("host file {name} came as a File; WordCraft reads bytes only; not opened");
+        log::warn!("host file {name} came as a File; ClaWord reads bytes only; not opened");
         return;
     };
     if data.size() > MAX_OPEN_BYTES as f64 {

@@ -498,11 +498,11 @@ fn autocorrect_replacement_list_follows_the_texts_language() {
 fn autocorrect_options_change_what_typing_does() {
     let mut s = s();
     // A user entry, a deleted built-in entry, an added exception; names of days.
-    run(&mut s, "tools.autocorrect", json!({"add": {"from": "wc", "to": "WordCraft"}}));
+    run(&mut s, "tools.autocorrect", json!({"add": {"from": "wc", "to": "ClaWord"}}));
     run(&mut s, "tools.autocorrect", json!({"delete": "teh"}));
     run(&mut s, "tools.autocorrect", json!({"addException": "approx."}));
     typ(&mut s, "wc ships on monday. teh end is approx. three weeks ");
-    assert_eq!(s.doc.plain_text(StoryRef::Body), "WordCraft ships on Monday. Teh end is approx. three weeks ");
+    assert_eq!(s.doc.plain_text(StoryRef::Body), "ClaWord ships on Monday. Teh end is approx. three weeks ");
     // AutoFormat options off: straight quotes, no dashes, no list; sentences not capitalised.
     let mut s = self::s();
     run(&mut s, "tools.autocorrect", json!({"smartQuotes": false, "dashes": false, "bullets": false, "capSentences": false, "capDays": false}));
@@ -650,12 +650,12 @@ fn bold_and_italic_marks_become_formatting() {
 fn autocorrect_goes_on_after_bold_and_italic_marks() {
     // After a space or punctuation, the word without its marks is replaced and capitalized.
     let mut s = s();
-    run(&mut s, "tools.autocorrect", json!({"boldItalic": true, "add": {"from": "wc", "to": "WordCraft"}}));
+    run(&mut s, "tools.autocorrect", json!({"boldItalic": true, "add": {"from": "wc", "to": "ClaWord"}}));
     typ(&mut s, "*teh* end. _wc_.");
-    assert_eq!(s.doc.plain_text(StoryRef::Body), "The end. WordCraft.");
+    assert_eq!(s.doc.plain_text(StoryRef::Body), "The end. ClaWord.");
     let p = s.doc.para_at(&Pos::body(0, 0)).unwrap();
     let at = |t: &str| p.props_of_char(p.text.find(t).unwrap()).clone();
-    assert_eq!((at("The").bold, at("WordCraft").italic, at(" end").bold), (Some(true), Some(true), None));
+    assert_eq!((at("The").bold, at("ClaWord").italic, at(" end").bold), (Some(true), Some(true), None));
     // One Undo brings the marks back as typed.
     run(&mut s, "edit.undo", json!({}));
     assert_eq!(s.doc.plain_text(StoryRef::Body), "The end. _wc_.");
@@ -672,11 +672,11 @@ fn autocorrect_goes_on_after_bold_and_italic_marks() {
     }
     // After Enter too; a longer replacement moves the Enter with it, and Undo keeps the Enter.
     let mut s = self::s();
-    run(&mut s, "tools.autocorrect", json!({"boldItalic": true, "add": {"from": "wc", "to": "WordCraft"}}));
+    run(&mut s, "tools.autocorrect", json!({"boldItalic": true, "add": {"from": "wc", "to": "ClaWord"}}));
     typ(&mut s, "*teh*\nok. *wc*\nnext");
-    assert_eq!(s.doc.plain_text(StoryRef::Body), "The\nOk. WordCraft\nnext");
+    assert_eq!(s.doc.plain_text(StoryRef::Body), "The\nOk. ClaWord\nnext");
     let p = s.doc.para_at(&Pos::body(1, 0)).unwrap();
-    assert_eq!(p.props_of_char(p.text.find("WordCraft").unwrap()).bold, Some(true));
+    assert_eq!(p.props_of_char(p.text.find("ClaWord").unwrap()).bold, Some(true));
     let mut s = self::s();
     run(&mut s, "tools.autocorrect", json!({"boldItalic": true}));
     typ(&mut s, "*teh*\n");
