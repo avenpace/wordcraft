@@ -755,6 +755,9 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                         }
                         if narrow {
                             // Only the percentage and its buttons; the edge of the controls is here.
+                            if small_icon(ui, far.0, tl!(far.1)) {
+                                zoom_step(app, far.2);
+                            }
                             let used = ui.min_rect();
                             controls_left = if rtl { used.max.x } else { used.min.x };
                             return;
