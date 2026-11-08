@@ -222,7 +222,13 @@ pub fn specs() -> Vec<CommandSpec> {
             let csv = p::str(v, "csv").unwrap_or("A,B,C\n1,2,3\n4,5,6");
             let rows = crate::cmd::mailings::parse_csv(csv);
             let cols = rows.iter().map(Vec::len).max().unwrap_or(1).clamp(1, 63);
-            s.run("insert.table", &json!({"rows": rows.len().max(1), "cols": cols, "style": "GridTable1Light"}))?;
+            // A document opened from a file may not define Grid Table 1 Light: use a table style it
+            // has, or none, rather than refusing the paste
+            let mut table = json!({"rows": rows.len().max(1), "cols": cols});
+            if let Some(style) = ["GridTable1Light", "TableGrid"].into_iter().find(|n| crate::cmd::table_style::table_style_id(s, n).is_some()) {
+                table["style"] = json!(style);
+            }
+            s.run("insert.table", &table)?;
             let Some((tp, _, _)) = s.sel.focus.path.cell() else { return sel_result(s) };
             let t = s.doc.table_mut(s.sel.focus.story, &tp)?;
             for (r, row) in rows.iter().enumerate() {

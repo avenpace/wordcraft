@@ -12497,3 +12497,13 @@ fn page_down_extends_a_selection_that_ends_in_collapsed_outline_text() {
     assert!(s.sel.focus.path.0[0] > 6, "Page Down extends the selection a page on: {:?}", s.sel.focus);
     assert!(s.layout().caret(&s.sel.focus).is_some(), "to a place the outline shows");
 }
+
+#[test]
+fn spreadsheet_table_goes_in_when_the_document_lacks_grid_table_1_light() {
+    // A .docx from elsewhere defines only the styles it uses: the paste must not need ours
+    let mut s = Session::new(wordcraft_doc::Document::from_text("Report\n"));
+    std::sync::Arc::make_mut(&mut s.doc.styles).styles.retain(|st| st.id != "GridTable1Light");
+    s.run("insert.spreadsheet", &json!({"csv": "Item,Qty\nGloves,120\n"})).unwrap();
+    let text = s.run("document.inspect", &json!({})).unwrap().to_string();
+    assert!(text.contains("Gloves") && text.contains("120"), "{text}");
+}
