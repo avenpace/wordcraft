@@ -586,6 +586,9 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
             crate::rtl::root(ui, |ui| {
                 ui.horizontal_centered(|ui| {
                     ui.spacing_mut().item_spacing = vec2(14.0, 0.0);
+                    // Phones: the page and the count on the left, the zoom on the right; the rest
+                    // would be drawn over each other (Clawku).
+                    let narrow = ui.ctx().content_rect().width() < 600.0;
                     let l = app.session.layout();
                     let page = if let Some(p) = app.canvas.viewed_page {
                         // The page in view (#3880), as the scrollbar's tip names it.
@@ -661,6 +664,7 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                         st(ui, label);
                     }
                     // The language at the caret; a click sets the proofing language (Review › Language).
+                    if !narrow {
                     let lang = crate::ribbon::caret_language(app);
                     let missing = crate::ribbon::caret_missing_dictionary(app);
                     let unreadable = crate::ribbon::caret_unreadable_dictionary(app);
@@ -680,9 +684,10 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                     if app.session.doc.settings.track_changes {
                         st(ui, tl!("Track Changes: On"));
                     }
+                    }
                     // Fonts the document uses that aren't installed: they're drawn in other fonts, so
                     // the text can wrap and paginate unlike where the document was made.
-                    let missing = app.cached_missing_fonts(&l).0;
+                    let missing = if narrow { std::sync::Arc::new(Vec::new()) } else { app.cached_missing_fonts(&l).0 };
                     let count = missing.iter().filter(|f| !f.metric_compatible).count();
                     if count > 0 {
                         let label = crate::i18n::tn(count as u64, "{n} font not installed", "{n} fonts not installed");
@@ -747,6 +752,12 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                         let (near, far) = if rtl { (inner, outer) } else { (outer, inner) };
                         if small_icon(ui, near.0, tl!(near.1)) {
                             zoom_step(app, near.2);
+                        }
+                        if narrow {
+                            // Only the percentage and its buttons; the edge of the controls is here.
+                            let used = ui.min_rect();
+                            controls_left = if rtl { used.max.x } else { used.min.x };
+                            return;
                         }
                         // Reading zoom changes only reading presentation, never the normal view zoom.
                         let mut v = if reading { app.session.view.read_zoom } else { app.canvas.scale / crate::canvas::PX_PER_PT };
