@@ -25,6 +25,8 @@ wordcraft-doc = { workspace = true }
 wordcraft-fonts = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# The page command API (storytold/craft-libs#413): the request plumbing behind `window.wordcraft`.
+craft-web-api = { git = "https://github.com/storytold/craft-libs", rev = "2e2312ddaf21bc3d85cd3395d0955c7d239306f6", version = "0.1.0" }
 # `wgpu` pulls egui-wgpu's defaults: WebGPU plus the WebGL2 fallback.
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit"] }
 rfd = { workspace = true }

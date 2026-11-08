@@ -90,8 +90,12 @@ pub fn start() {
                         app.session.set_document(doc);
                     }
                     let mut prefs = crate::prefs::PrefsSync::new(stored);
+                    // `?control`: `window.wordcraft`, the page's command API (`api`), opt-in. As
+                    // `--control` on the desktop, a control channel drives the editor: a blank
+                    // document to work on, not the Start screen.
+                    let control = control(&query());
                     // No document to show: start on File › Home, as the desktop app does (#766).
-                    if !sample {
+                    if !sample && !control {
                         app.start_screen();
                     }
                     // The host's name for the user signs this visit's work, but isn't stored as the
@@ -102,6 +106,15 @@ pub fn start() {
                         let own = app.session.author.clone();
                         crate::host::Bridge::set_author(&mut app, &author);
                         prefs.keep_own_author(&app.session.author, &own);
+                    }
+                    // The page's requests (`window.wordcraft`) join the app's control channel and
+                    // are drained each frame, as the desktop control server's are (`api`).
+                    if control {
+                        app = app.with_control(crate::api::channel());
+                        crate::api::connect(cc.egui_ctx.clone());
+                        if let Err(e) = crate::api::install() {
+                            log::error!("couldn't install window.wordcraft: {e:?}");
+                        }
                     }
                     Ok(Box::new(WebShell { app, inbox, messages, prefs }))
                 }),
@@ -125,6 +138,13 @@ pub fn start() {
 
 fn query() -> String {
     web_sys::window().and_then(|w| w.location().search().ok()).unwrap_or_default()
+}
+
+/// Whether `search` (`location.search`, with or without its `?`) has a `control` entry (`?control`,
+/// or `?control=…` with any value): the page's command API, `window.wordcraft` (`api`), is
+/// installed only when it is asked for.
+fn control(search: &str) -> bool {
+    search.strip_prefix('?').unwrap_or(search).split('&').any(|entry| entry.split('=').next() == Some("control"))
 }
 
 fn query_param(key: &str) -> Option<String> {
