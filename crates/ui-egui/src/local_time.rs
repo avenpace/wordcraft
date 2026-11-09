@@ -29,6 +29,12 @@ pub(crate) fn comment_time(c: &wordcraft_doc::Comment) -> String {
     stamp(&c.date, c.date_utc.as_deref(), offset_minutes)
 }
 
+/// A tracked change's time (`w:date` of `w:ins`/`w:del`), as `comment_time`: in local time. A
+/// revision has only `w:date`; WordCraft writes it in UTC with a `Z`, so the `Z` counts here.
+pub(crate) fn revision_time(date: &str) -> String {
+    stamp(date, Some(date), offset_minutes)
+}
+
 fn stamp(date: &str, date_utc: Option<&str>, offset: impl Fn(i64) -> i32) -> String {
     let utc = date_utc.and_then(parse).filter(|t| t.timed).map(|t| Time { zone: Some(t.zone.unwrap_or(0)), ..t });
     let local_date = || parse(date).map(|t| if date.trim_end().ends_with(['Z', 'z']) { Time { zone: None, ..t } } else { t });

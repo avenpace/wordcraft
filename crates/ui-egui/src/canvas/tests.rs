@@ -4993,3 +4993,39 @@ fn a_pictures_corrections_and_crop_change_its_page_key() {
     assert_ne!(plain, pages::page_content_key(&at([0.1, 0.0, 0.0, 0.0], PicFx::default())), "crop");
     assert_ne!(plain, pages::page_content_key(&at([0.0; 4], PicFx::new(10_000, 0, 0))), "brightness");
 }
+
+/// Reviewing together: hovering a tracked change says who made it, what it was and when;
+/// hovering unchanged text shows nothing.
+#[test]
+fn hovering_a_tracked_change_shows_who_made_it_and_when() {
+    use egui_kittest::kittest::Queryable;
+    let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::from_text("Base text")), Default::default());
+    a.run("file.setAuthor", json!({"name": "Andi (Oris)"})).unwrap();
+    a.run("review.trackChanges", json!({"value": true})).unwrap();
+    a.run("caret.docEnd", json!({})).unwrap();
+    a.run("text.insert", json!({"text": " payment within thirty days"})).unwrap();
+    let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+        |ui, app: &mut WordApp| {
+            let ctx = ui.ctx().clone();
+            app.logic(&ctx);
+            app.ui(ui);
+        },
+        a,
+    );
+    steps(&mut h, 6);
+    let tips = |h: &egui_kittest::Harness<'_, WordApp>| h.query_all_by_label_contains("Andi (Oris) inserted").count();
+    // Inside "payment" (inserted)
+    let c = h.state_mut().session.layout().caret(&Pos { story: StoryRef::Body, path: wordcraft_doc::Path::top(0), off: 14 }).unwrap();
+    let at = screen(&mut h, c.x, c.top + c.height / 2.0);
+    h.event(egui::Event::PointerMoved(at));
+    steps(&mut h, 2);
+    assert!(tips(&h) > 0, "hovering the insertion names its author");
+    assert!(h.query_all_by_label_contains("payment within thirty days").count() > 0, "and quotes what was inserted");
+    assert!(h.query_all_by_label_contains("20").count() > 0, "and says when (a date)");
+    // Inside "Base" (unchanged)
+    let c = h.state_mut().session.layout().caret(&Pos { story: StoryRef::Body, path: wordcraft_doc::Path::top(0), off: 2 }).unwrap();
+    let at = screen(&mut h, c.x, c.top + c.height / 2.0);
+    h.event(egui::Event::PointerMoved(at));
+    steps(&mut h, 2);
+    assert_eq!(tips(&h), 0, "unchanged text has no tip");
+}

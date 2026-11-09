@@ -1,6 +1,7 @@
 use super::balloons::over_balloon;
 use super::links::{field_showing_code, is_followable_link, is_generated_bookmark_link, link_under};
 use super::navigation::page_at;
+use super::revisions::revision_under;
 use super::story::{enters_header_footer, in_text_box, part_kind, text_box_host};
 use super::{CanvasState, DocLayout, PartKind, Pos, Pos2, Rect, StoryRef, Ui, WordApp, json};
 
@@ -225,6 +226,7 @@ fn handle_page_pointer(app: &mut WordApp, pointer: PagePointer<'_>) {
         apply_format_painter(app);
     }
     show_hover_link(app, &pointer);
+    show_revision_tip(app, &pointer);
 }
 
 fn handle_primary_press(
@@ -494,6 +496,39 @@ fn show_hover_link(app: &WordApp, pointer: &PagePointer<'_>) {
         let target = if is_generated_bookmark_link(&link) { tl!("Current Document").to_string() } else { link };
         let tip = format!("{target}\n{}", crate::i18n::fmt(tl!("{key}+Click to follow link"), &[("key", key)]));
         egui::Tooltip::always_open(ui.ctx().clone(), ui.layer_id(), egui::Id::unique("link_tip"), egui::PopupAnchor::Pointer).show(|ui| {
+            ui.label(tip);
+        });
+    }
+}
+
+/// The tip on a tracked change: who, what and when (`revisions`). With a mouse it shows on
+/// hover; a touch screen has no hover, so a tap on a change shows it until the next tap. The
+/// tap still places the caret as usual.
+fn show_revision_tip(app: &mut WordApp, pointer: &PagePointer<'_>) {
+    let PagePointer { ui, resp, layout, p, page, x, y, story } = pointer;
+    if ui.input(|i| i.pointer.primary_pressed()) {
+        app.canvas.press_was_touch = ui.input(|i| i.any_touches());
+    }
+    if resp.clicked() {
+        app.canvas.revision_tap = (app.canvas.press_was_touch
+            && layout.hit(*page, *x, *y, *story).is_some_and(|pos| revision_under(app, layout, *page, *x, *y, &pos).is_some()))
+        .then_some((*page, *x, *y, *p));
+    }
+    let busy = app.canvas.dragging || app.canvas.context_menu_open || resp.secondary_clicked() || ui.input(|i| i.pointer.secondary_down());
+    if busy {
+        return;
+    }
+    let (tip, anchor) = match app.canvas.revision_tap {
+        Some((tp, tx, ty, at)) if tp == *page => {
+            (layout.hit(tp, tx, ty, *story).and_then(|pos| revision_under(app, layout, tp, tx, ty, &pos)), egui::PopupAnchor::Position(at))
+        }
+        _ if resp.hovered() => {
+            (layout.hit(*page, *x, *y, *story).and_then(|pos| revision_under(app, layout, *page, *x, *y, &pos)), egui::PopupAnchor::Pointer)
+        }
+        _ => (None, egui::PopupAnchor::Pointer),
+    };
+    if let Some(tip) = tip {
+        egui::Tooltip::always_open(ui.ctx().clone(), ui.layer_id(), egui::Id::unique("revision_tip"), anchor).show(|ui| {
             ui.label(tip);
         });
     }

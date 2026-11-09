@@ -26,6 +26,7 @@ mod margins;
 mod navigation;
 mod pages;
 mod reading;
+mod revisions;
 mod rulers;
 mod story;
 
@@ -166,6 +167,11 @@ pub struct CanvasState {
     pub context_synonyms: Option<serde_json::Value>,
     /// The right-click context menu is open (the mini toolbar stands down while it is).
     pub context_menu_open: bool,
+    /// A tap (touch: no hover) on a tracked change: where, so its tip stays until the next tap
+    /// (page, x, y in page points, and the screen point to show it at).
+    pub revision_tap: Option<(usize, f32, f32, egui::Pos2)>,
+    /// The last primary press came from a touch screen.
+    pub press_was_touch: bool,
     /// Shift+F10 (or `ui.contextMenu`) asked for the context menu at the caret (#821).
     pub context_menu_from_keys: bool,
     /// Where the context menu stands: the right-click point, or below the caret.
@@ -395,6 +401,8 @@ impl Default for CanvasState {
             erasing: None,
             ink_ui: Default::default(),
             context_menu_open: false,
+            revision_tap: None,
+            press_was_touch: false,
             context_menu_from_keys: false,
             context_menu_at: None,
             eq_options: None,
