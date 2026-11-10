@@ -781,6 +781,9 @@ pub struct WordApp {
     no_document: Option<u64>,
     /// Comment and reply text typed but not yet written to the document (#1348).
     pub(crate) comment_drafts: panes::CommentDrafts,
+    /// A comment just started (New Comment): its text field takes the keyboard once, in the
+    /// Comments pane or its balloon, so typing goes into the comment and not over the selection.
+    pub(crate) focus_comment: Option<u32>,
     /// The document the window's per-document state belongs to; when the session's active
     /// document is another, [`WordApp::sync_document`] puts that state aside and brings the
     /// other's.

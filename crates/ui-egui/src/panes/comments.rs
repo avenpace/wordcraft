@@ -29,7 +29,12 @@ pub(super) fn comments(app: &mut WordApp, ui: &mut Ui) {
                     }
                 });
                 // Editable comment text (one undo step per edit, like the balloons).
-                comment_editor(app, ui, id as u32, None, false);
+                // A comment just started takes the keyboard (once)
+                let focus = app.focus_comment == Some(id as u32);
+                if focus {
+                    app.focus_comment = None;
+                }
+                comment_editor(app, ui, id as u32, None, focus);
                 let open_key = egui::Id::unique(("comment_reply_open", document, id));
                 let mut replying = ui.data(|d| d.get_temp::<bool>(open_key)).unwrap_or(false);
                 ui.horizontal(|ui| {
@@ -132,6 +137,8 @@ pub(crate) fn comment_editor(app: &mut WordApp, ui: &mut Ui, id: u32, font: Opti
     let r = capped_field(ui, field.with("scroll"), font.as_ref(), edit);
     if focus {
         r.request_focus();
+        // The page doesn't take the keyboard back from the comment
+        app.canvas.want_focus = false;
     }
     if r.changed() {
         drafts(app).edits.insert(id, text);

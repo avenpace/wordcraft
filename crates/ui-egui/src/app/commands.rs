@@ -73,7 +73,22 @@ impl WordApp {
             return r;
         }
         let applied = applied_font(id, &params);
+        // A comment started without text (ribbon, context menu, the pane's button) is to be typed next
+        let starts_comment = id == "review.newComment" && params.get("text").and_then(Value::as_str).is_none_or(str::is_empty);
         let r = self.execute_user(id, params);
+        if starts_comment
+            && let Ok(v) = &r
+            && let Some(cid) = v.get("id").and_then(Value::as_u64).and_then(|c| u32::try_from(c).ok())
+        {
+            // Its field gets the keyboard, as in Word: the balloon when the markup area shows it,
+            // else the Comments pane's card (opening the pane)
+            if crate::canvas::markup_width(self) > 0.0 {
+                crate::canvas::select_balloon(self, cid);
+            } else {
+                self.session.view.comments_pane = true;
+                self.focus_comment = Some(cid);
+            }
+        }
         // A save error already on the status line is the reason to see; the refusal shows otherwise.
         if let (Some(e), true) = (refused, r.is_ok()) {
             self.status(e);

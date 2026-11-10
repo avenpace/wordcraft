@@ -7537,3 +7537,37 @@ fn focus_hides_the_ribbon_and_escape_brings_it_back() {
     h.step();
     assert!(h.state().session.view.read_mode && shown(&h, "Focus"), "Immersive Reader keeps the status bar");
 }
+
+/// New Comment puts the keyboard in the new comment, as in Word: typing right after it goes into
+/// the comment, not over the selected text (with the Comments pane open, and with balloons).
+#[test]
+fn typing_after_new_comment_goes_into_the_comment() {
+    for pane in [true, false] {
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::from_text("Hello from Clawku storage.")), Default::default());
+        a.run("select.text", json!({"text": "Hello from Clawku storage."})).unwrap();
+        a.session.view.comments_pane = pane;
+        let id = a.run("review.newComment", json!({})).unwrap()["id"].as_u64().unwrap() as u32;
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        for _ in 0..8 {
+            h.step();
+        }
+        h.event(egui::Event::Text("Please make this 30 days".into()));
+        for _ in 0..4 {
+            h.step();
+        }
+        let app = h.state();
+        let typed = crate::panes::comment_draft(app, id).unwrap_or_else(|| {
+            let part = app.session.doc.comments[&id].part;
+            app.session.doc.plain_text(wordcraft_doc::StoryRef::Part(part))
+        });
+        assert_eq!(typed, "Please make this 30 days", "pane open: {pane}");
+        assert_eq!(app.session.doc.body[0].as_para().unwrap().plain_text(), "Hello from Clawku storage.", "the selected text is untouched (pane open: {pane})");
+    }
+}
