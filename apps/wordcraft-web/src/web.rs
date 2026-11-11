@@ -95,7 +95,8 @@ pub fn start() {
                     // document to work on, not the Start screen.
                     let control = control(&query());
                     // No document to show: start on File › Home, as the desktop app does (#766).
-                    if !sample && !control {
+                    // Hosted (Clawku): never; the host's file is on its way, and Home would flash.
+                    if !sample && !control && !app.services.hosted {
                         app.start_screen();
                     }
                     // The host's name for the user signs this visit's work, but isn't stored as the
@@ -278,6 +279,10 @@ fn services(inbox: Inbox, ctx: egui::Context, dirty: Rc<Cell<bool>>, saves: Asyn
     let font_ctx = ctx.clone();
     let font_messages = messages.clone();
     Services {
+        // Clawku: one document, the host's; it owns files, sharing, help and the user's name
+        hosted: crate::clawku_pick::hosted(),
+        // Clawku: Share opens the host page's Share dialog (people, not a copy)
+        host_share: crate::clawku_pick::hosted().then(|| Box::new(|| crate::clawku_pick::host_share("wordcraft")) as Box<dyn Fn() -> bool>),
         open_async: Some(Box::new(move |purpose: &str| {
             // Clawku: opening a document goes through the host page's storage browser
             if purpose == "document" && crate::clawku_pick::host_pick("wordcraft", "document") {

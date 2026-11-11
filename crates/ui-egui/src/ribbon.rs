@@ -114,7 +114,13 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     // Format) may be stored while the selection moved away, and a tab may have been hidden.
     let user_tabs = app.session.ribbon.tabs().into_owned();
     let mut tabs: Vec<(String, bool)> = vec![("File".to_string(), false)];
-    tabs.extend(user_tabs.iter().filter(|e| !e.hidden).map(|e| (e.name.clone(), e.custom)));
+    // Hosted (Clawku): no Help tab; help is the host's, and this one is about the standalone app.
+    // The browser has no Zotero tab: Zotero is a desktop app it can't reach, so every button
+    // there was greyed out.
+    let hosted = app.services.hosted;
+    let left_out =
+        |e: &wordcraft_engine::ribbon::TabEntry| !e.custom && ((hosted && e.name == "Help") || (cfg!(target_arch = "wasm32") && e.name == "Zotero"));
+    tabs.extend(user_tabs.iter().filter(|e| !e.hidden && !left_out(e)).map(|e| (e.name.clone(), e.custom)));
     for ct in contextual_tabs(&app.session) {
         if ct == "Outlining" {
             tabs.insert(1.min(tabs.len()), (ct.to_string(), false));
@@ -215,7 +221,14 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                                 );
                             }
                             resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, share));
-                            if resp.on_hover_text(tl!("Export a copy to share (PDF, Word document)")).clicked() {
+                            // Hosted (Clawku): Share is the page's, sharing the stored document with
+                            // people; on its own, Share exports a copy to send.
+                            let hint = if app.services.host_share.is_some() {
+                                tl!("Share with people")
+                            } else {
+                                tl!("Export a copy to share (PDF, Word document)")
+                            };
+                            if resp.on_hover_text(hint).clicked() && !app.services.host_share.as_ref().is_some_and(|share| share()) {
                                 let _ = app.run("ui.backstage", json!({"value": true, "page": "export"}));
                             }
                             ui.add_space(6.0);

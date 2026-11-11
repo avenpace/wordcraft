@@ -201,6 +201,10 @@ impl WordApp {
     /// does, so tests, `ui_shot` and windows opened for a document start in the editor. Returns
     /// whether the Start screen shows.
     pub fn start_screen(&mut self) -> bool {
+        // Hosted (Clawku): the host's file is on its way; Home would flash before it.
+        if self.services.hosted {
+            return false;
+        }
         if self.ui.start_screen {
             self.ui.backstage = true;
             self.ui.backstage_page = "home".into();
@@ -337,7 +341,8 @@ impl WordApp {
         }
         if !self.recovery_seen && self.session.recovery_ready() {
             self.recovery_seen = true;
-            if !self.session.recovery_documents().is_empty() && !self.session.dirty {
+            // Hosted (Clawku): no Recover page; the host keeps the file and its versions.
+            if !self.session.recovery_documents().is_empty() && !self.session.dirty && !self.services.hosted {
                 self.ui.backstage = true;
                 self.ui.backstage_page = "recover".into();
             }

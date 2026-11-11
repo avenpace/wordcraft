@@ -23,6 +23,9 @@
 //!     is now that file; the next Save sends its name with `false`.
 //!   - Save As or Export to a format that doesn't (PDF, Markdown, plain text), Export as PDF and
 //!     Export Page as PNG: `false`. They are copies; the document's file stays the same.
+//!   - Clawku (`?host=parent&open=host`, [`Services::hosted`]) differs: Save As always sends the
+//!     document's own name with `true` (Clawku asks for the new one), and every export and Save
+//!     these pages as PDF is a copy (`false`) under a name other than the document's.
 //! - `wordcraft:dirty` whenever unsaved changes appear or go away, `wordcraft:failed` when the
 //!   app couldn't start.
 //!

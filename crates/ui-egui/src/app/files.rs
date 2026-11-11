@@ -285,6 +285,7 @@ impl WordApp {
         match id {
             "file.exportPdf" => return format!("{}.pdf", self.title_stem()),
             "file.exportPng" => return format!("{}.png", self.title_stem()),
+            "file.printPdf" => return format!("{}.pdf", self.title_stem()),
             _ => {}
         }
         if id == "file.save"

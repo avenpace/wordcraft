@@ -39,7 +39,7 @@ pub(super) fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         Dialog::Macros { name } => macros(app, ui, name),
         Dialog::Icons { query, category, selected } => icons_body(app, ui, query, category, selected),
         Dialog::PasteSpecial { .. } => paste_special_dialog(app, ui, d),
-        Dialog::About { .. } => about_dialog(ui, d),
+        Dialog::About { .. } => about_dialog(app.services.hosted, ui, d),
         Dialog::DiscardRecovery { .. } => discard_recovery_dialog(app, ui, d),
         Dialog::SaveChanges { .. } => save_changes_dialog(app, ui, d),
         Dialog::RecipientList { fields, rows, message, filter } => recipient_list(app, ui, fields, rows, message, filter),
@@ -1059,9 +1059,9 @@ fn commands_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     // An empty box suggests a few common commands, as Word's Search does.
     let mut hits: Vec<&wordcraft_engine::CommandSpec> = if query.trim().is_empty() {
         ui.label(egui::RichText::new(tl!("Suggested")).font(semibold(12.5)));
-        SEARCH_SUGGESTIONS.iter().filter_map(|id| reg.get(id)).collect()
+        SEARCH_SUGGESTIONS.iter().filter_map(|id| reg.get(id)).filter(|c| searchable(app, c.id)).collect()
     } else {
-        reg.all().iter().filter(|c| !NOT_IN_SEARCH.contains(&c.id) && command_matches(c, query)).collect()
+        reg.all().iter().filter(|c| !NOT_IN_SEARCH.contains(&c.id) && searchable(app, c.id) && command_matches(c, query)).collect()
     };
     hits.truncate(14);
     let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
@@ -1129,14 +1129,23 @@ fn paste_special_dialog(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool 
     ok || cancel
 }
 
-fn about_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
+/// About: the product name and version, with the credits. Hosted (Clawku), it leaves out the
+/// links to the standalone app's community and source, and the Contributors tab of GitHub links.
+fn about_dialog(hosted: bool, ui: &mut Ui, d: &mut Dialog) -> bool {
     let Dialog::About { tab } = d else {
         return false;
     };
     ui.set_width(820.0);
-    let names = ["About", "Contributors", "Models", "Language data"].map(|n| tl!(n).to_string());
-    if let Some(i) = crate::widgets::dialog_tabs(ui, &names, *tab as usize) {
-        *tab = i as u8;
+    // The tabs shown, as their numbers in `Dialog::About`.
+    let shown: &[u8] = if hosted { &[0, 2, 3] } else { &[0, 1, 2, 3] };
+    if !shown.contains(tab) {
+        *tab = 0;
+    }
+    let all = ["About", "Contributors", "Models", "Language data"];
+    let names: Vec<String> = shown.iter().map(|&i| tl!(all[i as usize]).to_string()).collect();
+    let at = shown.iter().position(|t| t == tab).unwrap_or(0);
+    if let Some(i) = crate::widgets::dialog_tabs(ui, &names, at) {
+        *tab = shown[i];
     }
     ui.add_space(6.0);
     match *tab {
@@ -1149,10 +1158,12 @@ fn about_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
             ui.label(crate::i18n::fmt(tl!("Version {version} ({build})"), &[("version", env!("CARGO_PKG_VERSION")), ("build", build)]));
             ui.label(tl!("A free, open-source word processor written from scratch in Rust.\nBased on WordCraft by the ArtCraft Team and contributors — MIT OR Apache-2.0."));
             ui.add_space(6.0);
-            ui.hyperlink_to(tl!("clawku.id"), "https://clawku.id/");
-            ui.hyperlink_to(tl!("Join the Clawku community"), "https://clawku.id/");
-            ui.hyperlink_to(tl!("Source code: github.com/avenpace/wordcraft"), "https://github.com/avenpace/wordcraft");
-            ui.add_space(6.0);
+            if !hosted {
+                ui.hyperlink_to(tl!("clawku.id"), "https://clawku.id/");
+                ui.hyperlink_to(tl!("Join the Clawku community"), "https://clawku.id/");
+                ui.hyperlink_to(tl!("Source code: github.com/avenpace/wordcraft"), "https://github.com/avenpace/wordcraft");
+                ui.add_space(6.0);
+            }
             ui.label(egui::RichText::new(tl!("MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the ClaWord contributors.")).small().weak());
         }
     }
@@ -1567,6 +1578,14 @@ fn match_fields_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
 /// Commands Search leaves out: they need a parameter it can't give (which Language pack), and
 /// File › Options › Language does them with the list in front of the person.
 const NOT_IN_SEARCH: [&str; 2] = ["proof.installPack", "proof.removePack"];
+
+/// Whether Search offers command `id`: hosted (Clawku), not what the host owns (New, Close,
+/// Rename, AutoSave, community, updates; [`crate::hosted::HIDDEN_COMMANDS`]).
+/// The browser leaves out what needs the desktop app (Compare, the Zotero tab's commands).
+pub(crate) fn searchable(app: &WordApp, id: &str) -> bool {
+    let desktop_only = cfg!(target_arch = "wasm32") && (id == "review.compare" || id.starts_with("ui.zotero."));
+    !desktop_only && !(app.services.hosted && crate::hosted::hides_command(id))
+}
 
 fn check_errors_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
     let Dialog::CheckErrors { unknown, records } = d else {

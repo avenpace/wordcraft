@@ -106,9 +106,12 @@ pub(super) fn review(app: &mut WordApp, ui: &mut Ui) {
             small(ui, app, "nextChange", Some("Next"), "Next Change", crate::widgets::ButtonAction::new("review.nextChange", json!({}), false));
         });
     });
-    group(ui, "Compare", None, app, |ui, app| {
-        big(ui, app, "compare", "Compare", "review.compare", json!({}), false);
-    });
+    // The browser can't read another file to compare with, so it has no Compare group.
+    if !cfg!(target_arch = "wasm32") {
+        group(ui, "Compare", None, app, |ui, app| {
+            big(ui, app, "compare", "Compare", "review.compare", json!({}), false);
+        });
+    }
     group(ui, "Protect", None, app, |ui, app| {
         big(ui, app, "blockAuthors", "Block\nAuthors", "review.blockAuthors", json!({}), false);
         big(ui, app, "restrict", "Restrict\nEditing", "review.restrict", json!({}), false);
@@ -174,8 +177,11 @@ pub(super) fn developer(app: &mut WordApp, ui: &mut Ui) {
 pub(super) fn help(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Help", None, app, |ui, app| {
         big(ui, app, "help", "Help", "ui.dialog", json!({"name": "about"}), false);
-        big(ui, app, "checkForUpdates", "Check for\nUpdates…", "ui.checkForUpdates", json!({}), false);
-        big(ui, app, "discord", "Clawku\nCommunity", "ui.discord", json!({}), false);
+        // Hosted (Clawku): updates and the community are the standalone app's.
+        if !app.services.hosted {
+            big(ui, app, "checkForUpdates", "Check for\nUpdates…", "ui.checkForUpdates", json!({}), false);
+            big(ui, app, "discord", "Clawku\nCommunity", "ui.discord", json!({}), false);
+        }
     });
     group(ui, "Agents", None, app, |ui, app| {
         big(ui, app, "macros", "Commands", "ui.dialog", json!({"name": "commands"}), false);

@@ -64,6 +64,11 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     if !has_document && !works_without_document(&app.ui.backstage_page) {
         app.ui.backstage_page = "home".into();
     }
+    // Hosted (Clawku): one document, the host's; File opens on Info, never on Home or New.
+    let hosted = app.services.hosted;
+    if hosted && crate::hosted::hides_page(&app.ui.backstage_page) {
+        app.ui.backstage_page = crate::hosted::FIRST_PAGE.into();
+    }
     let mac = app.integrated_titlebar;
     crate::rtl::start_panel("backstage_nav")
         .exact_size(200.0)
@@ -118,7 +123,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 app.canvas.want_focus = true;
             }
             ui.add_space(if mac { 12.0 } else { 6.0 });
-            for (id, label, icon) in PAGES {
+            for (id, label, icon) in PAGES.into_iter().filter(|(id, ..)| !(hosted && crate::hosted::hides_page(id))) {
                 // No document open (#1129): Info, Save, Save As, Print and Export are greyed out.
                 let on = has_document || works_without_document(id);
                 let (r, resp) = ui.add_enabled_ui(on, |ui| ui.allocate_exact_size(vec2(200.0, 38.0), Sense::click())).inner;
@@ -155,7 +160,8 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 }
             }
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                for (label, id) in [("About", "about"), ("Clawku community", "discord")] {
+                // Hosted (Clawku): About only; the community is the standalone app's.
+                for (label, id) in [("About", "about"), ("Clawku community", "discord")].into_iter().filter(|(_, id)| !(hosted && *id == "discord")) {
                     let (r, resp) = ui.allocate_exact_size(vec2(200.0, 32.0), Sense::click());
                     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), tl!(label)));
                     if resp.hovered() {
@@ -252,6 +258,10 @@ fn recovery_page(app: &mut WordApp, ui: &mut Ui) {
 /// pages that work without one open.
 pub(crate) fn go_to_page(app: &mut WordApp, id: &str) {
     if !app.has_document() && !works_without_document(id) {
+        return;
+    }
+    // Hosted (Clawku): Home, New, Recover and Close aren't there, so neither are their keytips.
+    if app.services.hosted && crate::hosted::hides_page(id) {
         return;
     }
     match id {
@@ -673,8 +683,11 @@ fn open_page(app: &mut WordApp, ui: &mut Ui) {
     {
         let _ = app.run("ui.fileBrowser", json!({}));
     }
-    ui.add_space(18.0);
-    open_list(app, ui);
+    // Hosted (Clawku): no Recent list; the host lists its files.
+    if !app.services.hosted {
+        ui.add_space(18.0);
+        open_list(app, ui);
+    }
 }
 
 /// Save As: Browse… asks where to save. It has no recent-documents list: clicking one of those
@@ -690,6 +703,10 @@ fn save_as_page(app: &mut WordApp, ui: &mut Ui) {
         app.save_as_dialog();
     }
     // A Word template in the user templates folder, which File › New lists under Personal (#2852).
+    // Hosted (Clawku): no templates folder and no New to list it in.
+    if app.services.hosted {
+        return;
+    }
     ui.add_space(8.0);
     if ui
         .button(egui::RichText::new(tl!("Save as Word Template…")).font(medium(14.0)))

@@ -28,6 +28,19 @@ impl WordApp {
     /// Close, Envelopes, Labels and Finish & Merge on a document with unsaved changes first ask
     /// Save / Don't Save / Cancel, and the command runs once that is answered (`ui.saveChanges`).
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, String> {
+        // Hosted (Clawku): Share is the host's Share dialog, and what the host owns (another
+        // document, Close, Rename, AutoSave, the user's name…) does nothing, whatever asked.
+        if self.services.hosted {
+            if id == "file.share"
+                && let Some(share) = &self.services.host_share
+                && share()
+            {
+                return Ok(json!({"shared": "host"}));
+            }
+            if crate::hosted::hides_command(id) {
+                return Ok(json!({"hosted": true}));
+            }
+        }
         // Comment text still being typed is written first, so a save or export has it and a
         // close, New or Open counts it as a change (#1348). A draft the document refuses is not
         // part of it: saving and exporting go on without it (the refusal stays on the status
@@ -153,10 +166,27 @@ impl WordApp {
             }
             return r;
         }
-        // Web: saving and exporting become downloads.
-        if self.services.download.is_some() && matches!(id, "file.save" | "file.saveAs" | "file.exportPdf" | "file.exportPng") {
-            let name = params.get("path").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| self.web_save_name(id));
-            let name = if id == "file.exportPdf" && !name.ends_with(".pdf") { format!("{name}.pdf") } else { name };
+        // Web: saving and exporting become downloads, and so does Save these pages as PDF.
+        if self.services.download.is_some() && matches!(id, "file.save" | "file.saveAs" | "file.exportPdf" | "file.exportPng" | "file.printPdf") {
+            // Hosted (Clawku): Save overwrites the host's file (its name, `saveAs: false`); Save As
+            // hands it over under that name with `saveAs: true`, and the host asks for the new
+            // one; an export (`copy`) is a new file beside it, never under the document's name.
+            let hosted = self.services.hosted && self.services.host_save.is_some();
+            let copy = hosted
+                && (matches!(id, "file.exportPdf" | "file.exportPng" | "file.printPdf") || params.get("copy").and_then(Value::as_bool) == Some(true));
+            let hosted_save_as = hosted && id == "file.saveAs" && !copy;
+            let opened_name = self.session.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().to_string());
+            let name = match params.get("path").and_then(Value::as_str) {
+                Some(path) if !hosted_save_as => path.to_string(),
+                _ if hosted_save_as && !self.legacy_word_path() && opened_name.is_some() => opened_name.clone().unwrap_or_default(),
+                _ => self.web_save_name(id),
+            };
+            let name = if matches!(id, "file.exportPdf" | "file.printPdf") && !name.to_ascii_lowercase().ends_with(".pdf") {
+                format!("{name}.pdf")
+            } else {
+                name
+            };
+            let name = if copy { crate::hosted::copy_name(&name, opened_name.as_deref()) } else { name };
             // A save with a password encrypts this and later saves (`file.save`'s `password`).
             if matches!(id, "file.save" | "file.saveAs")
                 && let Some(pw) = params.get("password").filter(|v| !v.is_null())
@@ -173,8 +203,13 @@ impl WordApp {
             // Word documents are encrypted with the document's password, if it has one.
             let password =
                 if matches!(id, "file.save" | "file.saveAs") { self.session.password.as_ref().map(wordcraft_engine::Password::as_str) } else { None };
-            let opts = wordcraft_engine::cmd::file::export_options(&self.session, &params);
-            let bytes = wordcraft_engine::io::save_bytes_with(&name, &self.session.doc, password, &opts)?;
+            let bytes = if id == "file.printPdf" {
+                // The pages, copies and layout the print settings choose, as the desktop writes them.
+                self.session.print_pdf(&params).map_err(|e| e.to_string())?.0
+            } else {
+                let opts = wordcraft_engine::cmd::file::export_options(&self.session, &params);
+                wordcraft_engine::io::save_bytes_with(&name, &self.session.doc, password, &opts)?
+            };
             // A ticket left over from an earlier call isn't this save's.
             let saves = self.services.async_saves.clone();
             if let Some(saves) = &saves {
@@ -182,14 +217,15 @@ impl WordApp {
             }
             // An export is a copy, and so is a save in a format that doesn't keep everything (a
             // page image, plain text): the document itself still has unsaved changes.
-            let marked_saved = matches!(id, "file.save" | "file.saveAs") && keeps_everything(&name);
+            let marked_saved = matches!(id, "file.save" | "file.saveAs") && keeps_everything(&name) && !copy;
             // Save As tells the host page the document is now this file, which it only is when the
             // save marks it saved. A Save under a name the page never sent (an untitled document,
-            // an imported .doc saved as .docx) is a new file too, never an overwrite.
-            let opened_name = self.session.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().to_string());
+            // an imported .doc saved as .docx) is a new file too, never an overwrite. Hosted, Save
+            // As always says so (the host names the new file) and a copy never does.
             let new_file = id == "file.saveAs" || opened_name.as_deref() != Some(name.as_str());
+            let save_as = if hosted_save_as { true } else { marked_saved && new_file };
             let delivered = match (&self.services.host_save, &self.services.download) {
-                (Some(host), _) => host(&name, &bytes, marked_saved && new_file),
+                (Some(host), _) => host(&name, &bytes, save_as),
                 (None, Some(download)) => download(&name, &bytes),
                 (None, None) => Ok(()),
             };

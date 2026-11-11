@@ -48,6 +48,15 @@ pub struct Services {
     /// Web: told whether the document has unsaved changes after each pass, for the browser's
     /// leave-page guard (`beforeunload` runs between frames and can't ask the app).
     pub on_dirty: Option<Box<dyn Fn(bool)>>,
+    /// Web: the page hosting the app shares the document with people itself (Clawku: its Share
+    /// dialog). True when the page took it; otherwise Share exports a copy, as on the desktop.
+    pub host_share: Option<Box<dyn Fn() -> bool>>,
+    /// Web: framed by a host that owns the files, sharing, help and the user (Clawku, which loads
+    /// the app with `?host=parent&open=host`). The editor shows the one document the host sent:
+    /// no Home/Start screen, New, Close, Recent, Recover, New Window, Rename or AutoSave; no Help
+    /// tab, community, account or user name; Save As and exports go to the host
+    /// ([`crate::hosted`]). False everywhere else, which changes nothing.
+    pub hosted: bool,
     /// Web: hand PDF bytes to the browser's print dialog (no download or intermediate file).
     /// Desktop uses `print_native` instead. An error means nothing was opened.
     pub print: Option<Box<dyn Fn(&[u8]) -> Result<(), String>>>,

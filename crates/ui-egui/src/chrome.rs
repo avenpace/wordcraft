@@ -63,7 +63,10 @@ pub(crate) fn qat_enabled(app: &WordApp, id: &str) -> bool {
 /// The Quick Access Toolbar (#379): the user's commands (Save, Undo, Redo until customized), each
 /// with a right-click menu, then the menu button that customizes it (#376).
 fn quick_access(ui: &mut Ui, app: &mut WordApp) {
-    let ids: Vec<String> = app.session.ribbon.qat().into_iter().map(str::to_string).collect();
+    // Hosted (Clawku): not what the host owns (New, Close…; [`crate::hosted::HIDDEN_COMMANDS`]).
+    let hosted = app.services.hosted;
+    let ids: Vec<String> =
+        app.session.ribbon.qat().into_iter().filter(|id| !(hosted && crate::hosted::hides_command(id))).map(str::to_string).collect();
     for (index, id) in ids.iter().enumerate() {
         let id = id.as_str();
         let tip = match id {
@@ -210,7 +213,9 @@ pub(crate) fn qat_menu_button_id() -> egui::Id {
 pub(crate) fn qat_menu(ui: &mut Ui, app: &mut WordApp) {
     ui.label(egui::RichText::new(tl!("Customize Quick Access Toolbar")).font(semibold(12.0)));
     ui.separator();
-    for id in QAT_MENU {
+    // Hosted (Clawku): not what the host owns (New, Close…; [`crate::hosted::HIDDEN_COMMANDS`]).
+    let hosted = app.services.hosted;
+    for id in QAT_MENU.into_iter().filter(|id| !(hosted && crate::hosted::hides_command(id))) {
         let Some(label) = app.session.registry.get(id).map(|s| tl!(s.label).to_string()) else { continue };
         let on = app.session.ribbon.qat().contains(&id);
         let mark = egui::RichText::new("✓");
@@ -315,61 +320,69 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                     ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
                     // AutoSave switch: greyed out, with the reason as its tooltip, when AutoSave can't
                     // cover the document (#196, #176); clicking it then offers Save As where that helps.
-                    let block = app.autosave_block();
-                    let on = app.autosaves();
-                    let color = if block.is_some() { t.text_dim.gamma_multiply(0.6) } else { t.text_dim };
-                    // The text is part of the switch (#3370): clicking it toggles AutoSave, and chrome
-                    // text is not document text to select (double-clicking it copied "AutoSave").
-                    let text = ui.add(
-                        egui::Label::new(egui::RichText::new(tl!("AutoSave")).font(regular(11.5)).color(color))
-                            .selectable(false)
-                            .sense(Sense::click()),
-                    );
-                    let (r, resp) = ui.allocate_exact_size(vec2(30.0, 16.0), Sense::click());
-                    let (fill, stroke, knob_fill) = match (&block, on) {
-                        (Some(_), _) => (t.input.gamma_multiply(0.5), t.border.gamma_multiply(0.7), t.text_dim.gamma_multiply(0.45)),
-                        (None, true) => (t.accent, t.accent, t.on_accent),
-                        (None, false) => (t.input, t.border_strong, t.text_dim),
-                    };
-                    ui.painter().rect(r, 8.0, fill, Stroke::new(1.0, stroke), egui::StrokeKind::Inside);
-                    let knob = autosave_knob_x(rtl, on, r);
-                    ui.painter().circle_filled(pos2(knob, r.center().y), 5.0, knob_fill);
-                    let tip = block
-                        .as_ref()
-                        .map_or_else(|| tl!("AutoSave saves every change to the file (needs a saved document)").to_string(), |b| b.reason());
-                    let text = text.on_hover_text(tip.as_str()).on_hover_cursor(egui::CursorIcon::PointingHand);
-                    let resp = resp.on_hover_text(tip.as_str()).on_hover_cursor(egui::CursorIcon::PointingHand);
-                    if text.clicked() || resp.clicked() {
-                        match block {
-                            None => {
-                                let _ = app.run("file.autosave", json!({}));
+                    // Hosted (Clawku): not shown; the host stores the file, so Save is the only way in.
+                    if !app.services.hosted {
+                        let block = app.autosave_block();
+                        let on = app.autosaves();
+                        let color = if block.is_some() { t.text_dim.gamma_multiply(0.6) } else { t.text_dim };
+                        // The text is part of the switch (#3370): clicking it toggles AutoSave, and chrome
+                        // text is not document text to select (double-clicking it copied "AutoSave").
+                        let text = ui.add(
+                            egui::Label::new(egui::RichText::new(tl!("AutoSave")).font(regular(11.5)).color(color))
+                                .selectable(false)
+                                .sense(Sense::click()),
+                        );
+                        let (r, resp) = ui.allocate_exact_size(vec2(30.0, 16.0), Sense::click());
+                        let (fill, stroke, knob_fill) = match (&block, on) {
+                            (Some(_), _) => (t.input.gamma_multiply(0.5), t.border.gamma_multiply(0.7), t.text_dim.gamma_multiply(0.45)),
+                            (None, true) => (t.accent, t.accent, t.on_accent),
+                            (None, false) => (t.input, t.border_strong, t.text_dim),
+                        };
+                        ui.painter().rect(r, 8.0, fill, Stroke::new(1.0, stroke), egui::StrokeKind::Inside);
+                        let knob = autosave_knob_x(rtl, on, r);
+                        ui.painter().circle_filled(pos2(knob, r.center().y), 5.0, knob_fill);
+                        let tip = block
+                            .as_ref()
+                            .map_or_else(|| tl!("AutoSave saves every change to the file (needs a saved document)").to_string(), |b| b.reason());
+                        let text = text.on_hover_text(tip.as_str()).on_hover_cursor(egui::CursorIcon::PointingHand);
+                        let resp = resp.on_hover_text(tip.as_str()).on_hover_cursor(egui::CursorIcon::PointingHand);
+                        if text.clicked() || resp.clicked() {
+                            match block {
+                                None => {
+                                    let _ = app.run("file.autosave", json!({}));
+                                }
+                                // AutoSave comes on once Save As has saved (maybe on a later frame, #94).
+                                Some(b) if b.save_as_helps() => {
+                                    let _ = app.save_as(crate::file_dialogs::AfterSave::AutoSave);
+                                }
+                                Some(b) => app.status(b.reason()),
                             }
-                            // AutoSave comes on once Save As has saved (maybe on a later frame, #94).
-                            Some(b) if b.save_as_helps() => {
-                                let _ = app.save_as(crate::file_dialogs::AfterSave::AutoSave);
-                            }
-                            Some(b) => app.status(b.reason()),
                         }
+                        ui.add_space(8.0);
                     }
-                    ui.add_space(8.0);
                     // Hidden (#1945): neither the buttons nor the … menu; the title centres as before.
                     if app.ui.quick_access_toolbar {
                         quick_access(ui, app);
                     }
                     qat_end = if rtl { ui.min_rect().min.x } else { ui.min_rect().max.x };
                     ui.with_layout(crate::rtl::far_side(ui, egui::Align::Center), |ui| {
-                        // Account / community.
-                        let (r, resp) = ui.allocate_exact_size(vec2(control_h, control_h), Sense::click());
-                        ui.painter().circle_filled(r.center(), control_h / 2.0 - 1.0, t.accent);
-                        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tl!("Account")));
-                        let initials: String = app.session.user_initials().chars().take(2).collect();
-                        ui.painter().text(r.center(), Align2::CENTER_CENTER, initials, semibold(10.5), t.on_accent);
-                        if resp.on_hover_text(format!("{} — set your name in File › Options", app.session.author)).clicked() {
-                            let _ = app.run("ui.backstage", json!({"value": true, "page": "options", "pane": "general"}));
+                        // Account / community. Hosted (Clawku): neither; the host signs the user in,
+                        // names them (`?author=`) and runs its own community and help.
+                        let hosted = app.services.hosted;
+                        if !hosted {
+                            let (r, resp) = ui.allocate_exact_size(vec2(control_h, control_h), Sense::click());
+                            ui.painter().circle_filled(r.center(), control_h / 2.0 - 1.0, t.accent);
+                            resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tl!("Account")));
+                            let initials: String = app.session.user_initials().chars().take(2).collect();
+                            ui.painter().text(r.center(), Align2::CENTER_CENTER, initials, semibold(10.5), t.on_accent);
+                            if resp.on_hover_text(format!("{} — set your name in File › Options", app.session.author)).clicked() {
+                                let _ = app.run("ui.backstage", json!({"value": true, "page": "options", "pane": "general"}));
+                            }
+                            ui.add_space(8.0);
                         }
-                        ui.add_space(8.0);
-                        if app.ui.show_discord {
+                        if app.ui.show_discord && !hosted {
                             let (r, resp) = ui.allocate_exact_size(vec2(84.0, 22.0), Sense::click());
+                            resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tl!("Community")));
                             ui.painter().rect_filled(r, 11.0, if resp.hovered() { t.accent_text } else { t.accent });
                             icons::paint(
                                 ui.painter(),
@@ -427,10 +440,13 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
             let w = text_width(ui.painter(), &shown, &font, track, t.text);
             if available > 24.0 {
                 let rect = Rect::from_center_size(pos2(cx, full.center().y), vec2(w + 8.0, control_h));
-                let response = ui.interact(rect, ui.scope_id().with("document_name"), Sense::click()).on_hover_text(tl!("Rename Document"));
-                response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &title));
-                if response.clicked() {
-                    let _ = app.run("file.rename", json!({}));
+                // Hosted (Clawku): the host renames its files, so the title is only a title.
+                if !app.services.hosted {
+                    let response = ui.interact(rect, ui.scope_id().with("document_name"), Sense::click()).on_hover_text(tl!("Rename Document"));
+                    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &title));
+                    if response.clicked() {
+                        let _ = app.run("file.rename", json!({}));
+                    }
                 }
 
                 paint_text(
@@ -665,25 +681,25 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                     }
                     // The language at the caret; a click sets the proofing language (Review › Language).
                     if !narrow {
-                    let lang = crate::ribbon::caret_language(app);
-                    let missing = crate::ribbon::caret_missing_dictionary(app);
-                    let unreadable = crate::ribbon::caret_unreadable_dictionary(app);
-                    let shown = if unreadable.is_some() {
-                        crate::i18n::fmt(tl!("{language} (dictionary unreadable)"), &[("language", &lang)])
-                    } else if missing.is_some() {
-                        crate::i18n::fmt(tl!("{language} (no dictionary)"), &[("language", &lang)])
-                    } else {
-                        lang.clone()
-                    };
-                    let tip = dictionary_problem(&lang, &unreadable, missing).unwrap_or_else(|| tl!("Language").to_string());
-                    let resp = st(ui, &shown).on_hover_text(tip);
-                    crate::rtl::menu(&resp).show(|ui| {
-                        ui.set_min_width(200.0);
-                        crate::rtl::root(ui, |ui| crate::ribbon::language_menu(ui, app));
-                    });
-                    if app.session.doc.settings.track_changes {
-                        st(ui, tl!("Track Changes: On"));
-                    }
+                        let lang = crate::ribbon::caret_language(app);
+                        let missing = crate::ribbon::caret_missing_dictionary(app);
+                        let unreadable = crate::ribbon::caret_unreadable_dictionary(app);
+                        let shown = if unreadable.is_some() {
+                            crate::i18n::fmt(tl!("{language} (dictionary unreadable)"), &[("language", &lang)])
+                        } else if missing.is_some() {
+                            crate::i18n::fmt(tl!("{language} (no dictionary)"), &[("language", &lang)])
+                        } else {
+                            lang.clone()
+                        };
+                        let tip = dictionary_problem(&lang, &unreadable, missing).unwrap_or_else(|| tl!("Language").to_string());
+                        let resp = st(ui, &shown).on_hover_text(tip);
+                        crate::rtl::menu(&resp).show(|ui| {
+                            ui.set_min_width(200.0);
+                            crate::rtl::root(ui, |ui| crate::ribbon::language_menu(ui, app));
+                        });
+                        if app.session.doc.settings.track_changes {
+                            st(ui, tl!("Track Changes: On"));
+                        }
                     }
                     // Fonts the document uses that aren't installed: they're drawn in other fonts, so
                     // the text can wrap and paginate unlike where the document was made.

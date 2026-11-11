@@ -90,15 +90,21 @@ pub(super) fn view(app: &mut WordApp, ui: &mut Ui) {
         );
     });
     group(ui, "Window", None, app, |ui, app| {
-        big(ui, app, "newWindow", "New\nWindow", "view.newWindow", json!({}), false);
+        // Hosted (Clawku): one document in one window; no New Window or Switch Windows.
+        let hosted = app.services.hosted;
+        if !hosted {
+            big(ui, app, "newWindow", "New\nWindow", "view.newWindow", json!({}), false);
+        }
         big(ui, app, "arrangeAll", "Arrange\nAll", "view.arrangeAll", json!({}), false);
         big(ui, app, "split", "Split", "view.split", json!({}), false);
-        menu_button(
-            ui,
-            app,
-            crate::widgets::MenuButtonOptions::new("switchWindows", Some("Switch\nWindows"), "Switch Windows", true, "view.switchWindows"),
-            crate::documents::switch_windows_menu,
-        );
+        if !hosted {
+            menu_button(
+                ui,
+                app,
+                crate::widgets::MenuButtonOptions::new("switchWindows", Some("Switch\nWindows"), "Switch Windows", true, "view.switchWindows"),
+                crate::documents::switch_windows_menu,
+            );
+        }
         // The Full Screen button carries its name for assistive technology (and for the
         // regression test that clicks it): big buttons are otherwise drawn unlabeled. Its
         // enabled state is the command's own, as every other ribbon control reports: the

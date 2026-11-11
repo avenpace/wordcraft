@@ -293,12 +293,18 @@ impl WordApp {
             }
             AfterPick::Export { ext } => {
                 let Some(path) = picked else { return Ok(json!({"cancelled": true})) };
+                // Hosted (Clawku): an export is a copy beside the host's file (`copy`), never Save
+                // As, which would make the document that file.
+                let copy = self.services.hosted;
                 let r = if ext == "png" {
                     self.run("file.exportPng", json!({"path": path}))
                 } else if ext == crate::print_page::EXPORT_WORD_2003 {
-                    self.run("file.saveAs", json!({"path": path, "format": ext}))
+                    self.run(
+                        "file.saveAs",
+                        if copy { json!({"path": path, "format": ext, "copy": true}) } else { json!({"path": path, "format": ext}) },
+                    )
                 } else {
-                    self.run("file.saveAs", json!({"path": path}))
+                    self.run("file.saveAs", if copy { json!({"path": path, "copy": true}) } else { json!({"path": path}) })
                 };
                 if r.is_ok() {
                     self.status(crate::i18n::fmt(tl!("Exported {path}"), &[("path", &crate::i18n::isolate_path(&path))]));
@@ -389,6 +395,19 @@ impl WordApp {
 
     /// Ask where to save, save there, then do `after`.
     pub(crate) fn save_as(&mut self, after: AfterSave) -> Asked {
+        // Hosted (Clawku): no name prompt here; the document goes to the host with `saveAs`, and
+        // the host asks for the new name itself.
+        if self.services.hosted && self.services.host_save.is_some() && matches!(after, AfterSave::Nothing) {
+            let r = self.run("file.saveAs", json!({}));
+            if r.is_ok() {
+                self.ui.backstage = false;
+                self.canvas.want_focus = true;
+                self.clear_save_as_error();
+            } else if let Err(error) = &r {
+                self.fail_save_as(error);
+            }
+            return Asked::Done(r);
+        }
         let name = self.default_save_name();
         self.ask_file(FileDialogRequest::Save { name, dir: None }, AfterPick::SaveAs { after, document: self.session.document_id() })
     }
@@ -441,7 +460,8 @@ impl WordApp {
     /// File › Print › Save these pages as PDF: ask where, then write the pages the print
     /// settings choose.
     pub(crate) fn print_pdf_dialog(&mut self) {
-        let name = format!("{}.pdf", self.title_stem());
+        // Hosted (Clawku): a copy named apart from File › Export's PDF of the whole document.
+        let name = if self.services.hosted { format!("{} (pages).pdf", self.title_stem()) } else { format!("{}.pdf", self.title_stem()) };
         let settings = self.ui.print.params();
         let _ = self.ask_file(FileDialogRequest::Save { name, dir: None }, AfterPick::PrintPdf { settings });
     }

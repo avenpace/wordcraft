@@ -139,12 +139,16 @@ pub fn page(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     ui.label(RichText::new(tl!("Options")).font(semibold(26.0)));
     ui.add_space(16.0);
-    let current = if PANES.contains(&app.ui.options_pane.as_str()) { app.ui.options_pane.clone() } else { "general".to_string() };
+    // Hosted (Clawku): no Agents pane; its CLI and control-channel instructions are the
+    // standalone app's.
+    let hosted = app.services.hosted;
+    let panes: Vec<&str> = PANES.into_iter().filter(|p| !(hosted && *p == "agents")).collect();
+    let current = if panes.contains(&app.ui.options_pane.as_str()) { app.ui.options_pane.clone() } else { "general".to_string() };
     let rtl = crate::rtl::on();
     let body = |ui: &mut Ui| {
         crate::rtl::vertical(ui, |ui| {
             ui.set_width(170.0);
-            for id in PANES {
+            for &id in &panes {
                 let label = tl!(pane_label(id));
                 let active = current == id;
                 let (r, resp) = ui.allocate_exact_size(vec2(170.0, 30.0), egui::Sense::click());
@@ -233,6 +237,11 @@ fn general(app: &mut WordApp, ui: &mut Ui) {
         .changed()
     {
         let _ = app.run("view.darkMode", json!({"value": dark_page}));
+    }
+    // Hosted (Clawku): no community button, no Start screen and no user name here: the host
+    // runs its own community, opens the document and names the user (`?author=`).
+    if app.services.hosted {
+        return;
     }
     ui.checkbox(&mut app.ui.show_discord, tl!("Show the community button in the title bar"));
     default_app_button(app, ui);
@@ -480,6 +489,16 @@ fn custom_dictionary(app: &mut WordApp, ui: &mut Ui) {
 }
 
 fn save(app: &mut WordApp, ui: &mut Ui) {
+    // Hosted (Clawku): no AutoSave; the host stores the file when the user saves it.
+    if !app.services.hosted {
+        autosave_option(app, ui);
+    }
+    // The open document's `file.privacyOptions` (#1062): saved with it, honoured when it is saved.
+    privacy_options(app, ui);
+}
+
+/// The AutoSave setting, greyed out in the browser, which can't write to the user's files (#176).
+fn autosave_option(app: &mut WordApp, ui: &mut Ui) {
     section(ui, "Save documents");
     // The browser can't write to the user's files, so AutoSave can't be turned on there (#176).
     let browser = app.autosave_block() == Some(crate::AutoSaveBlock::Browser);
@@ -493,7 +512,10 @@ fn save(app: &mut WordApp, ui: &mut Ui) {
     }
     note(ui, "AutoSave writes your changes to the file a moment after you stop typing.");
     ui.add_space(8.0);
-    // The open document's `file.privacyOptions` (#1062): saved with it, honoured when it is saved.
+}
+
+/// The open document's `file.privacyOptions` (#1062): saved with it, honoured when it is saved.
+fn privacy_options(app: &mut WordApp, ui: &mut Ui) {
     section(ui, "Privacy for this document");
     let settings = &app.session.doc.settings;
     let rows = [
@@ -531,8 +553,11 @@ fn language(app: &mut WordApp, ui: &mut Ui) {
     ui.add_space(8.0);
     crate::language_packs::your_languages_section(app, ui);
     ui.add_space(8.0);
-    section(ui, "Dictionaries");
-    dictionaries(app, ui);
+    // The web app has no folders to name.
+    if !cfg!(target_arch = "wasm32") {
+        section(ui, "Dictionaries");
+        dictionaries(app, ui);
+    }
     crate::language_packs::add_language_window(app, &ui.ctx().clone());
 }
 
