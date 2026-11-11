@@ -1,8 +1,9 @@
 //! Fingers on the document (`crate::touch`), through the raw input hook as eframe runs it, with
-//! the events a browser's touch handlers send: the emulated pointer press, moves and release
-//! next to each [`egui::Event::Touch`].
+//! the events and frames a browser gives eframe: `pointerdown` (a primary press, and a frame run
+//! at once) before `touchstart` (the press again with the [`egui::Event::Touch`]), moves next to
+//! each touch move, and `pointerup` (a release, a frame at once) before `touchend`.
 
-use egui::{Event, Pos2, TouchId, TouchPhase, vec2};
+use egui::{Event, Pos2, TouchId, TouchPhase, pos2, vec2};
 use serde_json::json;
 use wordcraft_doc::Pos;
 
@@ -11,21 +12,28 @@ use crate::{Services, WordApp};
 struct Phone {
     ctx: egui::Context,
     t: f64,
+    screen: egui::Vec2,
 }
 
 impl Phone {
+    /// A 1280 by 800 tablet whose web shell found a coarse pointer.
     fn new(a: &mut WordApp) -> Self {
-        let mut p = Phone { ctx: egui::Context::default(), t: 0.0 };
+        a.expect_touch();
+        Self::sized(a, vec2(1280.0, 800.0))
+    }
+
+    fn sized(a: &mut WordApp, screen: egui::Vec2) -> Self {
+        let mut p = Phone { ctx: egui::Context::default(), t: 0.0, screen };
         for _ in 0..4 {
             p.frame(a, Vec::new());
         }
         p
     }
 
-    /// One 1280 by 800 frame 1/60 s after the last, through the raw input hook, logic and UI.
+    /// One frame 1/60 s after the last, through the raw input hook, logic and UI.
     fn frame(&mut self, a: &mut WordApp, events: Vec<Event>) {
         self.t += 1.0 / 60.0;
-        let screen = egui::Rect::from_min_size(Pos2::ZERO, vec2(1280.0, 800.0));
+        let screen = egui::Rect::from_min_size(Pos2::ZERO, self.screen);
         let mut raw = egui::RawInput { events, time: Some(self.t), screen_rect: Some(screen), ..Default::default() };
         a.raw_input_hook(&self.ctx, &mut raw);
         self.ctx
@@ -43,6 +51,7 @@ impl Phone {
     }
 
     fn down(&mut self, a: &mut WordApp, id: u64, at: Pos2) {
+        self.frame(a, vec![button(at, true)]);
         self.frame(a, vec![button(at, true), touch(id, TouchPhase::Start, at)]);
     }
 
@@ -54,7 +63,15 @@ impl Phone {
     }
 
     fn up(&mut self, a: &mut WordApp, id: u64, at: Pos2) {
+        self.frame(a, vec![button(at, false)]);
         self.frame(a, vec![button(at, false), Event::PointerGone, touch(id, TouchPhase::End, at)]);
+    }
+
+    /// The coordinator's phone swipe: down at `from`, ten moves 16 ms apart to `to`, up.
+    fn swipe(&mut self, a: &mut WordApp, from: Pos2, to: Pos2) {
+        self.down(a, 1, from);
+        self.drag(a, 1, from, to, 10);
+        self.up(a, 1, to);
     }
 }
 
@@ -162,6 +179,8 @@ fn a_pinch_zooms_about_its_centre() {
     let before = under(&mut a);
     let (f1, f2) = (c - vec2(0.0, 60.0), c + vec2(0.0, 60.0));
     p.down(&mut a, 1, f1);
+    // The second finger's `pointerdown`, then its `touchstart`.
+    p.frame(&mut a, vec![button(f2, true)]);
     p.frame(&mut a, vec![button(f1, true), touch(2, TouchPhase::Start, f2)]);
     let sel = a.session.sel.clone();
     for i in 1..=10 {
@@ -180,16 +199,18 @@ fn a_pinch_zooms_about_its_centre() {
     assert_eq!(a.session.sel, sel, "the pinch selects nothing");
 }
 
-/// The mouse is unchanged: a press and drag selects at once, and the page stays put.
+/// The mouse is unchanged: a press places the caret in its own frame, a drag selects, and the
+/// page stays put.
 #[test]
 fn a_mouse_drag_still_selects() {
     let mut a = long_doc();
-    let mut p = Phone::new(&mut a);
+    let mut p = Phone::sized(&mut a, vec2(1280.0, 800.0));
     let (from_pos, to_pos) = (Pos::body(3, 4), Pos::body(3, 30));
     let (from, to) = (screen_of(&mut a, &from_pos), screen_of(&mut a, &to_pos));
     let scroll = a.canvas.scroll_offset;
     p.frame(&mut a, vec![Event::PointerMoved(from)]);
     p.frame(&mut a, vec![button(from, true)]);
+    assert_eq!(a.session.sel.focus, from_pos, "at once, as before");
     for i in 1..=6 {
         p.frame(&mut a, vec![Event::PointerMoved(from + (to - from) * (i as f32 / 6.0))]);
     }
@@ -223,4 +244,64 @@ fn read_mode_swipes_turn_columns() {
     p.idle(&mut a, 40);
     assert!(a.canvas.scroll_offset.x.abs() < 1.0, "and back: {}", a.canvas.scroll_offset.x);
     assert_eq!(a.session.sel, sel);
+}
+
+/// Seen on an iPhone 14 (390 by 844): three swipes up, each starting while the last still
+/// glides, scrolled the document and left a 36-word selection; a tap two seconds later then
+/// selected a word. The browser's `pointerdown` came a frame before its `touchstart` and went
+/// through as a mouse press. Swipes select nothing; a tap places a collapsed caret.
+#[test]
+fn swipes_during_a_glide_select_nothing_and_a_later_tap_places_the_caret() {
+    let mut a = long_doc();
+    a.expect_touch();
+    let mut p = Phone::sized(&mut a, vec2(390.0, 844.0));
+    let (from, to) = (pos2(195.0, 531.0), pos2(195.0, 199.0));
+    assert!(a.canvas.canvas_rect.unwrap().contains(from) && a.canvas.canvas_rect.unwrap().contains(to), "{:?}", a.canvas.canvas_rect);
+    let sel = a.session.sel.clone();
+    let start = a.canvas.scroll_offset.y;
+    for _ in 0..3 {
+        p.swipe(&mut a, from, to);
+        // 600 ms between swipes: the next comes down mid-glide.
+        p.idle(&mut a, 22);
+        assert!(a.touch.repaint_after().is_some(), "still gliding");
+    }
+    assert!(a.canvas.scroll_offset.y > start + 1000.0, "scrolled: {start} -> {}", a.canvas.scroll_offset.y);
+    assert_eq!(a.session.sel, sel, "the swipes selected nothing");
+    p.idle(&mut a, 120);
+    let at = pos2(150.0, 400.0);
+    p.down(&mut a, 1, at);
+    p.up(&mut a, 1, at);
+    p.idle(&mut a, 3);
+    assert!(a.session.sel.is_collapsed(), "a single tap places a caret: {:?}", a.session.sel);
+    assert_ne!(a.session.sel, sel, "at the tap");
+    // A second tap well after it is a single tap too.
+    p.idle(&mut a, 60);
+    p.down(&mut a, 1, at);
+    p.up(&mut a, 1, at);
+    p.idle(&mut a, 3);
+    assert!(a.session.sel.is_collapsed(), "{:?}", a.session.sel);
+    // Two quick taps in one place still select the word, as a double-click does.
+    p.down(&mut a, 1, at);
+    p.up(&mut a, 1, at);
+    p.idle(&mut a, 3);
+    p.down(&mut a, 1, at);
+    p.up(&mut a, 1, at);
+    p.idle(&mut a, 3);
+    assert!(!a.session.sel.is_collapsed(), "a double tap selects a word");
+}
+
+/// Where nothing said the device has a touch screen, the first finger's early press reaches the
+/// page (a caret where it came down), but the swipe still selects nothing.
+#[test]
+fn a_first_swipe_on_an_unannounced_touch_screen_selects_nothing() {
+    let mut a = long_doc();
+    let mut p = Phone::sized(&mut a, vec2(390.0, 844.0));
+    let start = a.canvas.scroll_offset.y;
+    p.swipe(&mut a, pos2(195.0, 531.0), pos2(195.0, 199.0));
+    p.idle(&mut a, 30);
+    assert!(a.canvas.scroll_offset.y > start + 300.0);
+    assert!(a.session.sel.is_collapsed(), "{:?}", a.session.sel);
+    p.swipe(&mut a, pos2(195.0, 531.0), pos2(195.0, 199.0));
+    p.idle(&mut a, 30);
+    assert!(a.session.sel.is_collapsed(), "{:?}", a.session.sel);
 }

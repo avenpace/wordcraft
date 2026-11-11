@@ -49,6 +49,12 @@ impl WordApp {
         self.synthetic_injected = n;
     }
 
+    /// The device's main pointer is a finger (a phone or tablet): its first press is read as a
+    /// finger's too (`touch::TouchGesture::expect_touch`).
+    pub fn expect_touch(&mut self) {
+        self.touch.expect_touch();
+    }
+
     /// Whether this pass's input came from the control channel (`ui.click`, `ui.key`, `ui.drag`,
     /// `ui.text`…, which MCP's `click`, `key` and `type` tools send). Decisions that are only the
     /// user's ignore it: letting agent messages through again, and answering an agent's question

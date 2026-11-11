@@ -80,6 +80,10 @@ pub fn start() {
                     // Pasted pictures wait apart from dropped files: the app inserts one only when the page is the edit target (#1349).
                     app.services.pasted = Some(pasted);
                     app.autosave = false;
+                    // A phone or tablet: its first press is already a finger's (a drag scrolls).
+                    if coarse_pointer() {
+                        app.expect_touch();
+                    }
                     // Preferences from an earlier visit (#2132), as the desktop app reads `ui.json`.
                     let stored = stored_prefs();
                     crate::prefs::restore(&mut app, stored.as_deref());
@@ -135,6 +139,11 @@ pub fn start() {
             }
         }
     });
+}
+
+/// The device's main pointer is a finger (`(pointer: coarse)`): a phone or a tablet.
+fn coarse_pointer() -> bool {
+    web_sys::window().and_then(|w| w.match_media("(pointer: coarse)").ok().flatten()).is_some_and(|m| m.matches())
 }
 
 fn query() -> String {

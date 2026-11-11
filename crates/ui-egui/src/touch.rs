@@ -86,6 +86,17 @@ pub struct TouchGesture {
     gone_pending: bool,
     /// The last primary press egui saw came from a finger.
     press_was_touch: bool,
+    /// Presses may be a finger's: the device's main pointer is coarse (a phone or tablet,
+    /// [`TouchGesture::expect_touch`]) or a finger has been seen.
+    expect_touch: bool,
+    /// A primary press from a frame with no finger in it, held for a frame: a browser sends a
+    /// finger's `pointerdown` (and runs a frame for it) before its `touchstart`. A finger coming
+    /// down next frame drops it; otherwise it was a mouse's and goes through then.
+    held: Option<(Pos2, egui::Modifiers)>,
+    /// Where a primary press went through to egui with no release since (a finger's first press
+    /// on a device not known to have a touch screen): released when a finger takes over, so egui
+    /// isn't left holding a button that a drag would select with.
+    passed_down: Option<Pos2>,
 }
 
 impl TouchGesture {
@@ -98,8 +109,40 @@ impl TouchGesture {
         self.frame_time = Some(now);
         self.scroll = Vec2::ZERO;
         let touched = raw.events.iter().any(|e| matches!(e, Event::Touch { .. }));
-        if !touched && self.phase == Phase::Idle && !self.momentum.is_active() && !self.gone_pending {
+        self.expect_touch |= touched;
+        let finger_down = raw.events.iter().any(|e| matches!(e, Event::Touch { phase: TouchPhase::Start, .. }));
+        // Last frame's held press: dropped for the finger it was, else a mouse's, given now.
+        let mut replayed = false;
+        if let Some((pos, modifiers)) = self.held.take()
+            && !finger_down
+        {
+            let press = Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: true, modifiers };
+            raw.events.splice(0..0, [Event::PointerMoved(pos), press]);
+            replayed = true;
+        }
+        let gliding = self.momentum.is_active() || self.gone_pending;
+        if !touched && self.phase == Phase::Idle {
+            let primary = |pressed: bool| {
+                raw.events
+                    .iter()
+                    .position(|e| matches!(e, Event::PointerButton { button: egui::PointerButton::Primary, pressed: p, .. } if *p == pressed))
+            };
+            // On a touch screen a press alone (no release in its frame) waits a frame for its
+            // finger, also while the last swipe still glides (the next one comes down mid-glide).
+            if self.expect_touch
+                && !replayed
+                && let Some(i) = primary(true)
+                && primary(false).is_none()
+                && let Some(Event::PointerButton { pos, modifiers, .. }) = raw.events.get(i).cloned()
+                && pos.is_finite()
+            {
+                raw.events.remove(i);
+                self.held = Some((pos, modifiers));
+            }
+        }
+        if !touched && self.phase == Phase::Idle && !gliding {
             // Mouse, touchpad and keyboard frames: as they came, apart from noting their presses.
+            self.note_passed(&raw.events);
             if raw.events.iter().any(|e| matches!(e, Event::PointerButton { pressed: true, .. })) {
                 self.press_was_touch = false;
             }
@@ -150,6 +193,11 @@ impl TouchGesture {
                         self.down.push(id);
                     }
                     if self.phase == Phase::Idle {
+                        // A press that went through before egui knew it was a finger: let go of
+                        // it where it was, so the finger's drag can't select from it.
+                        if let Some(at) = self.passed_down.take() {
+                            pre.push(button(at, false));
+                        }
                         self.begin(id, pos, now, on_canvas(pos));
                         owned = true;
                         out.push(Event::PointerMoved(pos));
@@ -215,7 +263,23 @@ impl TouchGesture {
         }
         pre.append(&mut out);
         pre.append(&mut post);
+        self.note_passed(&pre);
         raw.events = pre;
+    }
+
+    /// Keeps [`Self::passed_down`] up to date with the primary presses and releases going to egui.
+    fn note_passed(&mut self, events: &[Event]) {
+        for e in events {
+            if let Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, .. } = e {
+                self.passed_down = pressed.then_some(*pos);
+            }
+        }
+    }
+
+    /// The device's main pointer is a finger (a phone or tablet: `(pointer: coarse)` on the web):
+    /// even its first press is held back until its touch says what it is.
+    pub fn expect_touch(&mut self) {
+        self.expect_touch = true;
     }
 
     fn begin(&mut self, id: TouchId, pos: Pos2, now: f64, on_canvas: bool) {
@@ -294,6 +358,9 @@ impl TouchGesture {
     /// How soon the app must run again with no new input: a resting finger becomes a long press,
     /// a coast goes on, or a finger's target is decided on the next frame.
     pub fn repaint_after(&self) -> Option<std::time::Duration> {
+        if self.held.is_some() {
+            return Some(std::time::Duration::ZERO);
+        }
         match self.phase {
             Phase::Pending if self.target.is_none() => Some(std::time::Duration::ZERO),
             Phase::Pending => {
@@ -366,10 +433,17 @@ mod tests {
             run(&mut g, f64::from(12 + frames) / 60.0, Vec::new());
         }
         assert!(frames < 1000, "the coast stops");
-        // A mouse after it is left alone.
+        // A mouse press after it waits a frame for a finger (this is a touch screen), then goes
+        // through as it was; a press and release in one frame (a click) at once.
         let mouse = vec![Event::PointerMoved(p), press(p, true)];
-        assert_eq!(run(&mut g, 30.0, mouse.clone()), mouse);
+        assert_eq!(run(&mut g, 30.0, mouse.clone()), [Event::PointerMoved(p)]);
+        assert_eq!(run(&mut g, 30.02, Vec::new()), [Event::PointerMoved(p), press(p, true)]);
         assert!(!g.press_was_touch());
+        let click = vec![press(p, false), press(p, true), press(p, false)];
+        assert_eq!(run(&mut g, 30.04, click[1..].to_vec()), click[1..]);
+        // On a device that has shown no finger the mouse is never held.
+        let mut desk = TouchGesture::default();
+        assert_eq!(run(&mut desk, 0.0, mouse.clone()), mouse);
     }
 
     #[test]
