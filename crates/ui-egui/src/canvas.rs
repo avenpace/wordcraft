@@ -172,6 +172,9 @@ pub struct CanvasState {
     pub revision_tap: Option<(usize, f32, f32, egui::Pos2)>,
     /// The last primary press came from a touch screen.
     pub press_was_touch: bool,
+    /// Where a finger coming down is on the document (`crate::touch`): the canvas with its rulers,
+    /// less the scroll bars, on this layer. Set while the canvas is drawn, else None.
+    pub(crate) touch_area: Option<(Rect, egui::LayerId)>,
     /// Shift+F10 (or `ui.contextMenu`) asked for the context menu at the caret (#821).
     pub context_menu_from_keys: bool,
     /// Where the context menu stands: the right-click point, or below the caret.
@@ -403,6 +406,7 @@ impl Default for CanvasState {
             context_menu_open: false,
             revision_tap: None,
             press_was_touch: false,
+            touch_area: None,
             context_menu_from_keys: false,
             context_menu_at: None,
             eq_options: None,
@@ -545,8 +549,14 @@ fn prepare_view(app: &mut WordApp, ui: &Ui, full: Rect, layout: &DocLayout) -> C
     let opts = ui.ctx().options(|o| o.input_options);
     let zoom_delta = ui.input(|i| app.canvas.wheel.zoom(i, &opts, animate));
     let mut zoom_anchor = None;
-    if (zoom_delta - 1.0).abs() > 1e-3 && ui.rect_contains_pointer(area) {
-        if !read_mode && let Some(p) = ui.input(|i| i.pointer.latest_pos()) {
+    // Two fingers zoom about the point between them, and only when they came down on the page.
+    let pinch = ui.input(|i| i.multi_touch().map(|t| t.center_pos));
+    let over = match pinch {
+        Some(c) => app.touch.pinching_canvas() && area.contains(c),
+        None => ui.rect_contains_pointer(area),
+    };
+    if (zoom_delta - 1.0).abs() > 1e-3 && over {
+        if !read_mode && let Some(p) = pinch.or_else(|| ui.input(|i| i.pointer.latest_pos())) {
             zoom_anchor = page_at(&app.canvas.page_rects, layout, app.canvas.scale, p).map(|at| (p, at));
         }
         let pct =
@@ -632,6 +642,8 @@ fn update_caret_scroll(app: &mut WordApp, view: &CanvasView) -> Option<Rect> {
 
 struct ScrollMotion {
     wheel: egui::Vec2,
+    /// A finger dragging the page, or two fingers panning it (`crate::touch`).
+    touch: egui::Vec2,
     auto: egui::Vec2,
     middle: egui::Vec2,
 }
@@ -660,6 +672,11 @@ fn scroll_motion(app: &mut WordApp, ui: &Ui, full: Rect, view: &CanvasView) -> S
         }
         // Discard any pixel-scroll inertia left from editing mode.
         app.canvas.wheel = Default::default();
+        // A finger swipe (along either axis) turns a column, as the wheel does.
+        let turn = app.touch.swipe_turn();
+        if turn != 0 {
+            turn_read_page(app, turn as f32);
+        }
         egui::Vec2::ZERO
     } else {
         app.canvas.read_wheel_accum = 0.0;
@@ -691,13 +708,26 @@ fn scroll_motion(app: &mut WordApp, ui: &Ui, full: Rect, view: &CanvasView) -> S
     } else {
         app.canvas.auto_scroll.update(ui, view.area)
     };
-    ScrollMotion { wheel: wheel_delta, auto: auto_delta, middle: middle_delta }
+    // Fingers move the page with them (Read Mode turned columns above instead).
+    let touch_delta = if app.session.view.read_mode {
+        egui::Vec2::ZERO
+    } else {
+        let pan = if app.touch.pinching_canvas() {
+            ui.input(|i| i.multi_touch().map_or(egui::Vec2::ZERO, |t| t.translation_delta))
+        } else {
+            egui::Vec2::ZERO
+        };
+        let d = app.touch.take_scroll(crate::touch::Target::Canvas) + pan;
+        if d.is_finite() { d } else { egui::Vec2::ZERO }
+    };
+    ScrollMotion { wheel: wheel_delta, touch: touch_delta, auto: auto_delta, middle: middle_delta }
 }
 
 fn configure_scroll_area(app: &mut WordApp, ui: &Ui, view: &CanvasView, motion: ScrollMotion) -> egui::ScrollArea {
-    let delta = motion.wheel + motion.auto + motion.middle;
+    let delta = motion.wheel + motion.touch + motion.auto + motion.middle;
     // The canvas scrolls itself on wheel/touchpad input (crate::scroll): touchpads 1:1 with
-    // momentum, wheel notches eased in (or all at once with animation effects off). Applied
+    // momentum, wheel notches eased in (or all at once with animation effects off). A finger on a
+    // touch screen moves it 1:1 too and it coasts after the finger lifts (crate::touch). Applied
     // before drawing, so it shows this frame. In reading mode, wheel and touchpad events turn
     // whole columns instead.
     let mut scroll_area = egui::ScrollArea::both()
@@ -721,6 +751,9 @@ fn configure_scroll_area(app: &mut WordApp, ui: &Ui, view: &CanvasView, motion: 
         };
         if after == before && motion.wheel != egui::Vec2::ZERO {
             app.canvas.wheel.hit_edge();
+        }
+        if after == before && motion.touch != egui::Vec2::ZERO {
+            app.touch.hit_edge();
         }
         if motion.auto != egui::Vec2::ZERO && after != before {
             // The scroll keeps going without new input.
@@ -1401,6 +1434,10 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     let mut ui_area = ui.new_child(egui::UiBuilder::new().max_rect(area));
     let mut ime_geometry: Option<(Rect, Rect)> = None;
     let mut ime_interrupt = false;
+    // Fingers coming down here scroll the document, rulers and page gaps too; not on the scroll
+    // bars, which a finger drags as a mouse does.
+    let bars = if app.session.view.read_mode { egui::Vec2::ZERO } else { vec2(SCROLLBAR, SCROLLBAR) };
+    app.canvas.touch_area = Some((Rect::from_min_max(full.min, (full.max - bars).max(full.min)), ui.layer_id()));
     let out = scroll_area.show_viewport(&mut ui_area, |ui, viewport| {
         origin = ui.min_rect().min - viewport.min.to_vec2();
         let content = Rect::from_min_size(ui.min_rect().min, geo.size);

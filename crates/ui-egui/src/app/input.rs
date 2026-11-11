@@ -24,6 +24,13 @@ impl WordApp {
         if cfg!(target_os = "macos") {
             control_click_as_secondary(&mut raw.events, &mut self.control_click);
         }
+        // Fingers: a drag scrolls the page or a text field instead of selecting (`touch`). The
+        // control channel's input, added below, is a mouse's and passes as it is.
+        if raw.viewport_id == egui::ViewportId::ROOT {
+            let canvas = self.canvas.touch_area;
+            let on_canvas = |p: egui::Pos2| canvas.is_some_and(|(rect, layer)| rect.contains(p) && ctx.layer_id_at(p).is_none_or(|l| l == layer));
+            self.touch.filter(raw, on_canvas, || crate::touch::field_hovered(ctx));
+        }
         if self.synthetic_pending || self.synthetic.is_empty() || self.fonts_frames < 2 || !self.control_input_is_roots(ctx) {
             return;
         }

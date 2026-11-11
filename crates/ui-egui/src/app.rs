@@ -110,6 +110,7 @@ impl WordApp {
             surface_geometry: None,
             capture_geometry: None,
             synthetic: Vec::new(),
+            touch: Default::default(),
             synthetic_pending: false,
             synthetic_injected: 0,
             styled: false,
@@ -437,6 +438,16 @@ impl WordApp {
             let opts = ctx.options(|o| o.input_options);
             ctx.input_mut(|i| i.smooth_scroll_delta = scroll::unsmoothed_scroll(i, &opts));
         }
+        // A finger dragging in a text field scrolls the scroll area around it, 1:1 (`touch`).
+        let field = self.touch.take_scroll(crate::touch::Target::Field);
+        if field != egui::Vec2::ZERO {
+            ctx.input_mut(|i| i.smooth_scroll_delta += field);
+        }
+        if let Some(after) = self.touch.repaint_after() {
+            ctx.request_repaint_after(after);
+        }
+        // The canvas says where it is when it is drawn; elsewhere (Backstage) fingers aren't on it.
+        self.canvas.touch_area = None;
         self.handle_ui_input_events(&ctx);
         // Fonts installed by `logic` take effect on the next frame.
         if self.fonts_frames < 2 {

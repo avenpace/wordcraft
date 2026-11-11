@@ -176,6 +176,7 @@ impl WordApp {
             surface_geometry: _,
             capture_geometry: _,
             synthetic: _,
+            touch: _,
             synthetic_pending: _,
             synthetic_injected: _,
             // The current command's origin, set and cleared around it.

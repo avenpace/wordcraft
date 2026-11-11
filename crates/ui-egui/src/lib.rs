@@ -76,6 +76,7 @@ pub mod table_pen;
 pub mod table_resize;
 pub mod table_ruler;
 pub mod theme;
+pub mod touch;
 pub mod updates_ui;
 pub mod widgets;
 pub mod window_close;
@@ -661,6 +662,8 @@ pub struct WordApp {
     capture_geometry: Option<control::CaptureGeometry>,
     /// Synthetic input not consumed by a real UI pass yet.
     pub(crate) synthetic: Vec<egui::Event>,
+    /// Fingers on a touch screen: drag scrolls, tap clicks, long press then drag selects.
+    pub(crate) touch: touch::TouchGesture,
     /// The batch offered to eframe is already in its pending RawInput; do not append it again.
     synthetic_pending: bool,
     /// How many events of `synthetic` the pending batch contains.

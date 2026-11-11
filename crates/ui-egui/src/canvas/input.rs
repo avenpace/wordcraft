@@ -507,7 +507,8 @@ fn show_hover_link(app: &WordApp, pointer: &PagePointer<'_>) {
 fn show_revision_tip(app: &mut WordApp, pointer: &PagePointer<'_>) {
     let PagePointer { ui, resp, layout, p, page, x, y, story } = pointer;
     if ui.input(|i| i.pointer.primary_pressed()) {
-        app.canvas.press_was_touch = ui.input(|i| i.any_touches());
+        // A tap's press reaches egui as the finger lifts, when egui no longer counts it (`touch`).
+        app.canvas.press_was_touch = ui.input(|i| i.any_touches()) || app.touch.press_was_touch();
     }
     if resp.clicked() {
         app.canvas.revision_tap = (app.canvas.press_was_touch
