@@ -160,8 +160,8 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 }
             }
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                // Hosted (Clawku): About only; the community is the standalone app's.
-                for (label, id) in [("About", "about"), ("Clawku community", "discord")].into_iter().filter(|(_, id)| !(hosted && *id == "discord")) {
+                // Hosted (Clawku): neither; help and the community are Clawku's and the standalone app's.
+                for (label, id) in [("About", "about"), ("Clawku community", "discord")].into_iter().filter(|_| !hosted) {
                     let (r, resp) = ui.allocate_exact_size(vec2(200.0, 32.0), Sense::click());
                     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), tl!(label)));
                     if resp.hovered() {

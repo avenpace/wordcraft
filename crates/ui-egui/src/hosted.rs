@@ -192,10 +192,10 @@ mod tests {
         h.state_mut().run("ui.tab", json!({"tab": "File"})).unwrap();
         h.run_steps(4);
         assert_eq!(h.state().ui.backstage_page, "info", "File opens on Info, not Home");
-        for gone in ["Home", "New", "Recover", "Close", "Clawku community"] {
+        for gone in ["Home", "New", "Recover", "Close", "Clawku community", "About"] {
             assert!(h.query_by_label(gone).is_none(), "File has no {gone}");
         }
-        assert!(h.query_by_label("Save As").is_some() && h.query_by_label("About").is_some());
+        assert!(h.query_by_label("Save As").is_some());
         h.state_mut().run("ui.backstage", json!({"value": true, "page": "open"})).unwrap();
         h.run_steps(4);
         assert!(h.query_by_label("Recent").is_none(), "no Recent list");
